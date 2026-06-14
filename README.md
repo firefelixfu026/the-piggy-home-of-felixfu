@@ -18,6 +18,8 @@
 ├── backend/               # FastAPI 后端
 ├── 需求.md                # 系统化需求说明
 ├── NEXT_STEPS.md          # 下一步开发计划
+├── DOCKER_DESKTOP_SETUP.md # Docker Desktop 安装与验证
+├── GITHUB_PUSH_TROUBLESHOOTING.md # GitHub 推送排查
 ├── CHANGELOG.md           # 版本日志
 ├── CODE_ANALYSIS.md       # 代码分析文档
 └── README.md              # 项目说明
@@ -52,6 +54,10 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ## 下一步
 
 当前最建议推进 v0.3.0 数据持久化版本：接入 PostgreSQL，把文章、评论、点赞、收藏、点踩从静态/内存数据改为数据库数据。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+
+开始 v0.3.0 前，需要先完成 Docker Desktop 安装与验证，步骤见 [DOCKER_DESKTOP_SETUP.md](./DOCKER_DESKTOP_SETUP.md)。
+
+当前 Git for Windows 推送 GitHub 仍有网络问题，排查与替代方案见 [GITHUB_PUSH_TROUBLESHOOTING.md](./GITHUB_PUSH_TROUBLESHOOTING.md)。
 
 ## GitHub 连接
 

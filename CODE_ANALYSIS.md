@@ -1,5 +1,14 @@
 # 代码分析文档
 
+## v0.2.2
+
+### 环境准备文档
+
+- `DOCKER_DESKTOP_SETUP.md`：新增 Docker Desktop 安装与验证指南，覆盖 WSL/Ubuntu、Docker Desktop、Docker Compose、`hello-world` 验证和后续 PostgreSQL 准备。
+- `GITHUB_PUSH_TROUBLESHOOTING.md`：新增 GitHub 推送问题排查文档，记录 PowerShell 可访问 GitHub、Git for Windows 连接超时的现象，并给出代理、GitHub Desktop、GitHub API 三类替代方案。
+- `NEXT_STEPS.md`：更新当前阻塞点，把 Docker 安装和 GitHub 推送排查列为 v0.3.0 前置事项。
+- `README.md`：增加两份环境文档入口。
+
 ## v0.2.1
 
 ### 下一步计划文档

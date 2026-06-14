@@ -1,5 +1,11 @@
 # 版本日志
 
+## v0.2.2 - Docker 与 GitHub 推送准备文档
+
+- 新增 `DOCKER_DESKTOP_SETUP.md`，说明 Docker Desktop、WSL/Ubuntu、Docker Compose 的安装和验证步骤。
+- 新增 `GITHUB_PUSH_TROUBLESHOOTING.md`，记录 GitHub 推送失败的排查结果和代理/GitHub Desktop/API 三种替代方案。
+- 更新 `NEXT_STEPS.md` 和 README，把 Docker 安装与 GitHub 推送排查作为 v0.3.0 前置事项。
+
 ## v0.2.1 - 下一步计划文档
 
 - 新增 `NEXT_STEPS.md`，明确当前状态、下一步推荐方向和 v0.3.0 数据持久化计划。

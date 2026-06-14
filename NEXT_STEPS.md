@@ -1,16 +1,17 @@
 # 下一步开发计划
 
 当前项目状态：已经完成本地 MVP、FastAPI 接口骨架、小游戏嵌入和基础文档；本地 Git 仓库已绑定 GitHub 远程仓库 `https://github.com/firefelixfu026/the-piggy-home-of-felixfu.git`。  
-当前待处理问题：最近一次小游戏集成提交已在本地完成，但由于本机当时无法连接 `github.com:443`，还没有成功推送到 GitHub。
+当前待处理问题：最近两次提交已在本地完成，但 Git for Windows 连接 `github.com:443` 超时，还没有成功推送到 GitHub。排查细节见 [GITHUB_PUSH_TROUBLESHOOTING.md](./GITHUB_PUSH_TROUBLESHOOTING.md)。
 
 ## 1. 立即要做的事情
 
 ### 你需要做
 
 1. 确认当前电脑网络可以访问 GitHub。
-2. 如果使用代理或校园网，确认命令行环境也能访问 `github.com:443`。
+2. 如果使用代理或校园网，告诉我代理类型和端口，让我配置 Git 后重试推送。
 3. 打开本地博客检查小游戏页是否符合预期：`http://127.0.0.1:5173`。
-4. 确认下一步是否优先做“数据库持久化”，也就是把文章、评论、点赞、收藏、点踩从静态数据变成真实数据库数据。
+4. 按 [DOCKER_DESKTOP_SETUP.md](./DOCKER_DESKTOP_SETUP.md) 安装 Docker Desktop，并把验证命令输出发给我。
+5. 确认下一步是否优先做“数据库持久化”，也就是把文章、评论、点赞、收藏、点踩从静态数据变成真实数据库数据。
 
 ### 我可以辅助完成
 
@@ -18,6 +19,7 @@
 2. 检查 GitHub 仓库里的文件结构是否完整。
 3. 继续实现 v0.3.0：PostgreSQL + SQLAlchemy + 数据库表结构 + 基础 CRUD 接口。
 4. 更新版本日志和代码分析文档，保持答辩材料可用。
+5. 如果你提供代理端口，我可以配置 Git 代理并重试推送。
 
 ## 2. 推荐下一版本：v0.3.0 数据持久化版本
 
@@ -38,8 +40,7 @@ v0.3.0 推荐目标：
 
 ### 你应该做
 
-- 确认电脑是否已经安装 Docker Desktop。
-- 如果没有安装 Docker Desktop，先安装并启动。
+- 按 `DOCKER_DESKTOP_SETUP.md` 安装并启动 Docker Desktop。
 - 决定本地数据库账号密码是否使用默认开发配置。
 - 确认示例文章内容是否先继续使用当前 3 篇占位文章。
 
@@ -70,8 +71,7 @@ v0.3.0 推荐目标：
 
 建议你先完成两件事：
 
-1. 确认 GitHub 网络恢复，让我把本地提交推上去。
-2. 确认是否安装 Docker Desktop。
+1. 告诉我你是否有本地代理，以及代理端口是多少；或者使用 GitHub Desktop 先推送。
+2. 安装 Docker Desktop，并把 `docker --version`、`docker compose version`、`wsl --list --verbose` 的输出发给我。
 
 如果这两点都满足，就可以直接开始 v0.3.0 数据持久化开发。
-
