@@ -3,6 +3,7 @@
 ## v0.8.0 - GitHub Actions 自动测试
 
 - 新增 `.github/workflows/ci.yml`。
+- 新增 `CLOUD_SERVER_DOMAIN_PREP.md`，记录云服务器、域名、备案、DNS 和 HTTPS 准备事项。
 - CI 在 push 到 `main`、PR 到 `main`、手动触发时运行。
 - 新增 `Backend` job：安装 Python 3.12、安装后端依赖、编译后端代码、导入 FastAPI app。
 - 新增 `Frontend` job：安装 Node 22、执行 `npm ci`、执行 `npm run build`。

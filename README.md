@@ -25,6 +25,7 @@
 ├── DATABASE.md            # 数据库和持久化说明
 ├── DOCKER_COMPOSE.md      # Docker Compose 一键启动说明
 ├── GITHUB_OAUTH_APP_SETUP.md # GitHub OAuth App 创建指南
+├── CLOUD_SERVER_DOMAIN_PREP.md # 云服务器和域名购买准备指南
 ├── docs/archive/          # 已归档的阶段性文档
 ├── CHANGELOG.md           # 版本日志
 ├── CODE_ANALYSIS.md       # 代码分析文档
@@ -124,6 +125,8 @@ GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
 ## 下一步
 
 v0.8.0 已完成 GitHub Actions 自动测试。下一步建议准备云服务器部署、Nginx、域名和 HTTPS。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+
+云服务器和域名购买准备见 [CLOUD_SERVER_DOMAIN_PREP.md](./CLOUD_SERVER_DOMAIN_PREP.md)。
 
 Docker 安装和 GitHub 推送排查文档已归档到 `docs/archive/`。
 
