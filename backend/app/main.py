@@ -159,6 +159,6 @@ def get_card_war_info() -> dict[str, str]:
     return {
         "title": "决斗小游戏",
         "repository": "https://github.com/firefelixfu026/card-war-made-by-class-3",
-        "status": "pending-integration",
+        "playUrl": "https://firefelixfu026.github.io/card-war-made-by-class-3/",
+        "status": "embedded",
     }
-

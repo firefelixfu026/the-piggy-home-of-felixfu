@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   BookOpen,
   Bot,
+  ExternalLink,
   Gamepad2,
   Github,
   Heart,
   MessageCircle,
+  RefreshCw,
   Search,
   Star,
   ThumbsDown,
@@ -362,6 +364,8 @@ function AiWorkspace({ news, articles }) {
 }
 
 function GameWorkspace() {
+  const [frameKey, setFrameKey] = useState(0);
+
   return (
     <section className="workspace">
       <div className="section-heading">
@@ -371,25 +375,32 @@ function GameWorkspace() {
 
       <div className="game-layout">
         <div className="game-stage">
-          <div className="card-stack left">
-            <span>A</span>
-            <span>K</span>
-            <span>Q</span>
-          </div>
-          <div className="versus">VS</div>
-          <div className="card-stack right">
-            <span>10</span>
-            <span>J</span>
-            <span>9</span>
-          </div>
+          <iframe
+            key={frameKey}
+            title="决斗小游戏"
+            src={gameModule.playUrl}
+            loading="lazy"
+            allow="fullscreen; gamepad; autoplay"
+          />
         </div>
         <div className="game-details">
           <span className="status-pill inline">{gameModule.status}</span>
-          <h2>Card War 集成位</h2>
+          <h2>Card War 在线试玩</h2>
           <p>{gameModule.plan}</p>
-          <a href={gameModule.repository} target="_blank" rel="noreferrer">
-            打开仓库
-          </a>
+          <div className="game-actions">
+            <button type="button" onClick={() => setFrameKey((current) => current + 1)}>
+              <RefreshCw size={17} />
+              <span>刷新游戏</span>
+            </button>
+            <a href={gameModule.playUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={17} />
+              <span>新窗口打开</span>
+            </a>
+            <a className="secondary-link" href={gameModule.repository} target="_blank" rel="noreferrer">
+              <Github size={17} />
+              <span>查看仓库</span>
+            </a>
+          </div>
         </div>
       </div>
     </section>
@@ -406,4 +417,3 @@ function IconToggle({ active, label, icon: Icon, onClick }) {
 }
 
 export default App;
-

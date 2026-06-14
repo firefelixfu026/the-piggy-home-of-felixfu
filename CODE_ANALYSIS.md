@@ -1,5 +1,14 @@
 # 代码分析文档
 
+## v0.2.0
+
+### 小游戏集成
+
+- `frontend/src/data.js`：为 `gameModule` 增加 `playUrl`，指向 `https://firefelixfu026.github.io/card-war-made-by-class-3/`，并把状态从“待集成”改为“已嵌入”。
+- `frontend/src/App.jsx`：在 `GameWorkspace` 中使用 `iframe` 直接嵌入小游戏页面，同时增加刷新游戏、新窗口打开和查看仓库按钮。
+- `frontend/src/styles.css`：调整游戏区域布局，使用固定最小高度保证 iframe 有足够操作空间，并适配移动端。
+- `backend/app/main.py`：更新 `/api/game/card-war` 返回结构，增加 `playUrl` 和 `embedded` 状态，方便后续前端改为从接口读取游戏配置。
+
 ## v0.1.0
 
 ### 前端
@@ -26,4 +35,3 @@
 - Docker Compose。
 - GitHub Actions。
 - 云服务器部署文档。
-

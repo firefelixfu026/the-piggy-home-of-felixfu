@@ -44,6 +44,10 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 - 前端：`http://127.0.0.1:5173`
 - 后端健康检查：`http://127.0.0.1:8000/api/health`
 
+## 已集成模块
+
+- 决斗小游戏：博客内通过 iframe 嵌入 `https://firefelixfu026.github.io/card-war-made-by-class-3/`，同时保留新窗口打开和源码仓库入口。
+
 ## GitHub 连接
 
 当前项目还没有绑定 GitHub 远程仓库。后续如果要满足“每次版本更新后推送 GitHub”的要求，需要提供：
@@ -52,4 +56,3 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 - 是否使用 GitHub OAuth 登录
 - GitHub OAuth App 的 Client ID 和 Client Secret
 - GitHub Actions 部署所需的服务器 SSH 信息
-

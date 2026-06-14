@@ -65,7 +65,7 @@ export const aiNews = [
 export const gameModule = {
   title: '决斗小游戏',
   repository: 'https://github.com/firefelixfu026/card-war-made-by-class-3',
-  status: '待集成',
-  plan: '先保留游戏入口，后续拉取仓库并确定是 iframe 嵌入、静态构建集成，还是作为独立子应用部署。'
+  playUrl: 'https://firefelixfu026.github.io/card-war-made-by-class-3/',
+  status: '已嵌入',
+  plan: '当前通过 GitHub Pages 页面直接嵌入博客。后续可以继续补充游戏介绍、排行榜和统一登录后的分数记录。'
 };
-
