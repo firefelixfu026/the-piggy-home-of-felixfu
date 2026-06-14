@@ -1,5 +1,17 @@
 # 版本日志
 
+## v0.6.0 - GitHub OAuth 登录
+
+- 新增 GitHub OAuth 登录跳转和回调接口。
+- 新增 GitHub code 换取 access token、读取用户资料和主邮箱的后端模块。
+- OAuth state 使用 HMAC 签名并设置有效期。
+- GitHub 用户登录后会写入 `users.github_id`、`avatar_url` 和显示名称。
+- 支持通过 GitHub 邮箱绑定已有账号。
+- 支持 `GITHUB_ADMIN_LOGINS` 和 `GITHUB_ADMIN_EMAILS` 指定 GitHub 管理员。
+- 前端登录页新增“使用 GitHub 登录”按钮。
+- 前端支持解析 OAuth 回调 token，登录后自动进入管理页。
+- 更新 README、数据库说明、下一步计划和代码分析文档。
+
 ## v0.5.0 - 登录鉴权和后台保护
 
 - 新增后端鉴权工具：PBKDF2 密码哈希、HS256 token 签发和校验。

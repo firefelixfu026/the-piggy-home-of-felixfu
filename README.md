@@ -7,7 +7,7 @@
 - 前端：React + Vite
 - 后端：FastAPI
 - 数据库：PostgreSQL
-- 鉴权：邮箱密码 + HS256 token
+- 鉴权：邮箱密码 + GitHub OAuth + HS256 token
 - 自动化：GitHub Actions，后续接入
 - 部署：云服务器 + Docker + Nginx，后续接入
 
@@ -65,7 +65,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ## 已集成模块
 
 - 决斗小游戏：博客内通过 iframe 嵌入 `https://firefelixfu026.github.io/card-war-made-by-class-3/`，同时保留新窗口打开和源码仓库入口。
-- 登录鉴权：导航栏“登录”页支持初始化管理员和邮箱密码登录，登录状态会保存到浏览器本地。
+- 登录鉴权：导航栏“登录”页支持 GitHub OAuth、初始化管理员和邮箱密码登录，登录状态会保存到浏览器本地。
 - 管理后台：导航栏“管理”页支持发布、编辑、删除文章，后台操作需要管理员 token。
 - 数据持久化：文章、评论、点赞、收藏、点踩写入 PostgreSQL。
 
@@ -78,11 +78,31 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 3. 进入“登录”页，选择“初始化管理员”。
 4. 初始化成功后进入“管理”页发布、编辑或删除文章。
 
-如果已经初始化过管理员，直接在“登录”页使用邮箱和密码登录。
+如果已经初始化过管理员，直接在“登录”页使用 GitHub 或邮箱密码登录。
+
+## GitHub OAuth 设置
+
+在 GitHub 创建 OAuth App 时，本地开发建议填写：
+
+```text
+Homepage URL: http://127.0.0.1:5173
+Authorization callback URL: http://127.0.0.1:8000/api/auth/github/callback
+```
+
+然后把凭据写入本地环境变量或 `.env`：
+
+```text
+GITHUB_CLIENT_ID=你的 Client ID
+GITHUB_CLIENT_SECRET=你的 Client Secret
+GITHUB_OAUTH_CALLBACK_URL=http://127.0.0.1:8000/api/auth/github/callback
+GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
+```
+
+`GITHUB_ADMIN_LOGINS` 用逗号分隔。匹配到的 GitHub 用户登录后会获得管理员权限；未匹配的新 GitHub 用户默认是 `reader`。
 
 ## 下一步
 
-v0.5.0 已完成登录鉴权和管理后台保护。下一步建议推进 GitHub OAuth 登录，或先完善 Docker Compose 一键启动和部署链路。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+v0.6.0 已完成 GitHub OAuth 登录。下一步建议完善 Docker Compose 一键启动和部署链路。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
 
 Docker 安装和 GitHub 推送排查文档已归档到 `docs/archive/`。
 
@@ -93,8 +113,7 @@ Docker 安装和 GitHub 推送排查文档已归档到 `docs/archive/`。
 - 仓库地址：`https://github.com/firefelixfu026/the-piggy-home-of-felixfu`
 - 用户名：`felixfu026`
 
-后续如果要继续完成 GitHub OAuth 登录和 GitHub Actions 部署，还需要：
+后续如果要继续完成 GitHub Actions 部署和云服务器上线，还需要：
 
-- GitHub OAuth App 的 Client ID 和 Client Secret。
 - GitHub Actions 部署所需的服务器 SSH 信息。
 - 云服务器公网 IP、SSH 用户名、部署目录和域名信息。

@@ -1,5 +1,27 @@
 # 代码分析文档
 
+## v0.6.0
+
+### GitHub OAuth 后端
+
+- `backend/app/github_oauth.py`：新增 GitHub OAuth 专用模块，负责生成授权 URL、用 code 换取 access token、读取 GitHub 用户资料和主邮箱。
+- `backend/app/auth.py`：新增 `create_oauth_state` 和 `verify_oauth_state`，使用 HMAC 签名 state，并设置默认 10 分钟有效期。
+- `backend/app/main.py`：新增 `GET /api/auth/github/start` 和 `GET /api/auth/github/callback`。
+- `_upsert_github_user`：根据 GitHub ID 查找用户；如果不存在则按邮箱绑定已有用户；否则创建新用户。
+- `_is_configured_github_admin`：读取 `GITHUB_ADMIN_LOGINS` 和 `GITHUB_ADMIN_EMAILS`，匹配到的 GitHub 用户获得管理员角色。
+- `_frontend_auth_redirect`：OAuth 成功或失败后重定向回前端 hash，成功时带本站 token，失败时带错误信息。
+
+### GitHub OAuth 前端
+
+- `frontend/src/App.jsx`：登录页新增“使用 GitHub 登录”按钮，指向 `/api/auth/github/start`。
+- `frontend/src/App.jsx`：新增 hash 回调解析逻辑，识别 `#auth=github&token=...` 后保存 token 并进入管理页。
+- `frontend/src/styles.css`：新增 GitHub 登录按钮和登录分隔线样式。
+
+### 配置
+
+- `.env.example`：新增 `GITHUB_OAUTH_CALLBACK_URL`、`GITHUB_ADMIN_LOGINS`、`GITHUB_ADMIN_EMAILS`。
+- 本地 GitHub OAuth App 推荐回调地址：`http://127.0.0.1:8000/api/auth/github/callback`。
+
 ## v0.5.0
 
 ### 登录鉴权

@@ -658,6 +658,35 @@ h3 {
   width: min(480px, 100%);
 }
 
+.github-auth-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  border-radius: 8px;
+  color: #ffffff;
+  text-decoration: none;
+  background: #24292f;
+  font-weight: 700;
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: center;
+  color: #6a7685;
+  font-size: 13px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  height: 1px;
+  background: #d8e0e9;
+}
+
 .auth-mode-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

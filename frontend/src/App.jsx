@@ -101,6 +101,28 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (params.get('auth') !== 'github') return;
+
+    const token = params.get('token');
+    const error = params.get('error');
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+
+    if (token) {
+      localStorage.setItem('felix_blog_token', token);
+      localStorage.removeItem('felix_blog_user');
+      setCurrentUser(null);
+      setAuthToken(token);
+      setAuthMessage('GitHub 登录成功');
+      setActiveView('admin');
+      return;
+    }
+
+    setAuthMessage(error ? `GitHub 登录失败：${error}` : 'GitHub 登录失败');
+    setActiveView('login');
+  }, []);
+
+  useEffect(() => {
     if (!authToken) {
       localStorage.removeItem('felix_blog_token');
       localStorage.removeItem('felix_blog_user');
@@ -836,6 +858,15 @@ function LoginWorkspace({
       </div>
 
       <form className="admin-panel admin-form auth-panel" onSubmit={submitAuthForm}>
+        <a className="github-auth-button" href="/api/auth/github/start">
+          <Github size={18} />
+          <span>使用 GitHub 登录</span>
+        </a>
+
+        <div className="auth-divider">
+          <span>或使用邮箱账号</span>
+        </div>
+
         <div className="auth-mode-switch" aria-label="账号模式">
           <button
             type="button"

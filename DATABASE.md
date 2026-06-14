@@ -1,8 +1,8 @@
 # 数据持久化说明
 
-版本：v0.5.0
+版本：v0.6.0
 
-本项目已接入 PostgreSQL，把文章、评论、点赞、收藏、点踩和管理员账号从静态/内存数据改为数据库读写。
+本项目已接入 PostgreSQL，把文章、评论、点赞、收藏、点踩、邮箱管理员账号和 GitHub OAuth 用户信息从静态/内存数据改为数据库读写。
 
 ## 1. 本地数据库启动
 
@@ -178,6 +178,8 @@ Authorization: Bearer <token>
 POST /api/auth/register
 POST /api/auth/login
 GET /api/auth/me
+GET /api/auth/github/start
+GET /api/auth/github/callback
 ```
 
 初始化管理员：
@@ -199,6 +201,20 @@ GET /api/auth/me
 }
 ```
 
+GitHub OAuth 登录：
+
+1. 前端点击“使用 GitHub 登录”。
+2. 浏览器访问 `GET /api/auth/github/start`。
+3. 后端跳转到 GitHub 授权页。
+4. GitHub 回调 `GET /api/auth/github/callback`。
+5. 后端创建或绑定用户，签发本站 token，并重定向回前端。
+
+GitHub 用户权限规则：
+
+- 如果 GitHub 邮箱匹配已有账号，会绑定到该账号并保留原角色。
+- 如果 `GITHUB_ADMIN_LOGINS` 或 `GITHUB_ADMIN_EMAILS` 匹配该 GitHub 用户，则角色设为 `admin`。
+- 未匹配的新 GitHub 用户默认角色为 `reader`。
+
 ## 7. 验证命令
 
 启动数据库和后端后，执行：
@@ -210,10 +226,10 @@ Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/articles?q=AI' -UseBasicParsin
 
 期望：
 
-- `/api/health` 返回 `version: 0.5.0`
+- `/api/health` 返回 `version: 0.6.0`
 - `/api/health` 返回 `articles` 数量
 - `/api/articles?q=AI` 能返回包含 AI 关键词或标签的文章
 
 ## 8. 后续改进
 
-当前 v0.3.0 使用 `Base.metadata.create_all()` 自动建表。后续进入多人协作或线上部署前，应加入 Alembic，使用正式数据库迁移管理表结构变化。
+当前仍使用 `Base.metadata.create_all()` 自动建表，并用少量启动时迁移兼容旧表。后续进入多人协作或线上部署前，应加入 Alembic，使用正式数据库迁移管理表结构变化。

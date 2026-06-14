@@ -15,6 +15,7 @@ from app.models import User
 
 AUTH_SECRET = os.getenv("AUTH_SECRET", "felix-blog-local-dev-secret-change-me")
 TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", str(7 * 24 * 60 * 60)))
+OAUTH_STATE_TTL_SECONDS = int(os.getenv("OAUTH_STATE_TTL_SECONDS", "600"))
 PASSWORD_ALGORITHM = "pbkdf2_sha256"
 PASSWORD_ITERATIONS = 210_000
 
@@ -65,6 +66,43 @@ def create_access_token(user: User) -> str:
     signing_input = f"{_b64_json(header)}.{_b64_json(payload)}"
     signature = hmac.new(AUTH_SECRET.encode("utf-8"), signing_input.encode("utf-8"), hashlib.sha256).digest()
     return f"{signing_input}.{_b64_encode(signature)}"
+
+
+def create_oauth_state(next_path: str = "/") -> str:
+    now = int(time.time())
+    payload = {
+        "nonce": secrets.token_urlsafe(16),
+        "next": next_path,
+        "iat": now,
+        "exp": now + OAUTH_STATE_TTL_SECONDS,
+    }
+    payload_part = _b64_json(payload)
+    signature = hmac.new(AUTH_SECRET.encode("utf-8"), payload_part.encode("utf-8"), hashlib.sha256).digest()
+    return f"{payload_part}.{_b64_encode(signature)}"
+
+
+def verify_oauth_state(state: str) -> dict:
+    try:
+        payload_part, signature_part = state.split(".", 1)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state") from exc
+
+    expected_signature = hmac.new(
+        AUTH_SECRET.encode("utf-8"),
+        payload_part.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    if not hmac.compare_digest(_b64_encode(expected_signature), signature_part):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
+    try:
+        payload = json.loads(_b64_decode(payload_part))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state") from exc
+
+    if int(payload.get("exp", 0)) < int(time.time()):
+        raise HTTPException(status_code=400, detail="OAuth state has expired")
+    return payload
 
 
 def get_current_user(

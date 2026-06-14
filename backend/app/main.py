@@ -1,21 +1,36 @@
+import os
 import re
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlencode
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.auth import create_access_token, get_current_user, hash_password, require_admin, verify_password
+from app.auth import (
+    create_access_token,
+    create_oauth_state,
+    get_current_user,
+    hash_password,
+    require_admin,
+    verify_oauth_state,
+    verify_password,
+)
 from app.database import SessionLocal, get_db, init_db
+from app.github_oauth import fetch_github_identity, get_github_authorize_url
 from app.models import Article, Comment, ReactionCounter, Tag, User
 from app.seed import REACTION_TYPES, seed_database
 
 
-app = FastAPI(title="FelixFu Blog API", version="0.5.0")
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173").rstrip("/")
+
+
+app = FastAPI(title="FelixFu Blog API", version="0.6.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,7 +49,7 @@ PROFILE = {
     "interests": ["长跑", "唱歌", "游戏"],
     "summary": "这里会逐步沉淀学习笔记、技术文章、个人项目、AI 自动化内容和小游戏实验。MVP 阶段先完成可展示结构，后续接入真实登录、数据库和云端部署。",
     "metrics": [
-        {"label": "MVP 状态", "value": "v0.5"},
+        {"label": "MVP 状态", "value": "v0.6"},
         {"label": "文章方向", "value": "技术/学习"},
         {"label": "扩展模块", "value": "AI + 游戏"},
     ],
@@ -94,7 +109,7 @@ def on_startup() -> None:
 @app.get("/api/health")
 def health(db: Session = Depends(get_db)) -> dict[str, str | int]:
     article_count = len(db.scalars(select(Article.id)).all())
-    return {"status": "ok", "version": "0.5.0", "articles": article_count}
+    return {"status": "ok", "version": "0.6.0", "articles": article_count}
 
 
 @app.get("/api/profile")
@@ -199,6 +214,35 @@ def login(payload: LoginIn, db: Session = Depends(get_db)) -> dict:
 @app.get("/api/auth/me")
 def get_me(current_user: User = Depends(get_current_user)) -> dict:
     return {"user": _user_to_dict(current_user)}
+
+
+@app.get("/api/auth/github/start")
+def start_github_login() -> RedirectResponse:
+    try:
+        return RedirectResponse(get_github_authorize_url(create_oauth_state("/admin")))
+    except HTTPException as exc:
+        return _frontend_auth_redirect(error=str(exc.detail))
+
+
+@app.get("/api/auth/github/callback")
+def github_callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    if error:
+        return _frontend_auth_redirect(error=error)
+    if not code or not state:
+        return _frontend_auth_redirect(error="GitHub callback is missing code or state")
+
+    try:
+        verify_oauth_state(state)
+        profile, email = fetch_github_identity(code)
+        user = _upsert_github_user(db, profile, email)
+        return _frontend_auth_redirect(token=create_access_token(user))
+    except HTTPException as exc:
+        return _frontend_auth_redirect(error=str(exc.detail))
 
 
 @app.post("/api/admin/articles")
@@ -379,12 +423,82 @@ def _validate_password(value: str) -> str:
     return value
 
 
+def _upsert_github_user(db: Session, profile: dict, email: str | None) -> User:
+    github_id = str(profile.get("id") or "").strip()
+    login = str(profile.get("login") or "").strip()
+    if not github_id or not login:
+        raise HTTPException(status_code=400, detail="GitHub profile is missing required fields")
+
+    normalized_email = _github_email(login, email)
+    display_name = (profile.get("name") or login).strip()
+    avatar_url = profile.get("avatar_url")
+    should_be_admin = _is_configured_github_admin(login, normalized_email)
+
+    user = db.scalar(select(User).where(User.github_id == github_id))
+    if not user:
+        user = db.scalar(select(User).where(User.email == normalized_email))
+        if user and user.github_id and user.github_id != github_id:
+            raise HTTPException(status_code=409, detail="This email is linked to another GitHub account")
+
+    if user:
+        user.github_id = github_id
+        user.email = user.email or normalized_email
+        user.display_name = display_name
+        user.avatar_url = avatar_url
+        if should_be_admin:
+            user.role = "admin"
+    else:
+        user = User(
+            email=normalized_email,
+            github_id=github_id,
+            display_name=display_name,
+            avatar_url=avatar_url,
+            role="admin" if should_be_admin else "reader",
+        )
+        db.add(user)
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def _github_email(login: str, email: str | None) -> str:
+    if email and email.strip():
+        return email.strip().lower()
+    return f"{login.lower()}@users.noreply.github.com"
+
+
+def _is_configured_github_admin(login: str, email: str) -> bool:
+    admin_logins = _split_env_values("GITHUB_ADMIN_LOGINS")
+    admin_emails = _split_env_values("GITHUB_ADMIN_EMAILS")
+    return login.lower() in admin_logins or email.lower() in admin_emails
+
+
+def _split_env_values(name: str) -> set[str]:
+    return {
+        item.strip().lower()
+        for item in os.getenv(name, "").split(",")
+        if item.strip()
+    }
+
+
+def _frontend_auth_redirect(token: str | None = None, error: str | None = None) -> RedirectResponse:
+    params = {"auth": "github"}
+    if token:
+        params["token"] = token
+    if error:
+        params["error"] = error
+    return RedirectResponse(f"{FRONTEND_ORIGIN}/#{urlencode(params)}")
+
+
 def _user_to_dict(user: User) -> dict:
     return {
         "id": user.id,
         "email": user.email,
         "displayName": user.display_name,
         "role": user.role,
+        "avatarUrl": user.avatar_url,
+        "githubLinked": bool(user.github_id),
     }
 
 
