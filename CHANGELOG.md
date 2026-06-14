@@ -10,6 +10,7 @@
 - 支持 `GITHUB_ADMIN_LOGINS` 和 `GITHUB_ADMIN_EMAILS` 指定 GitHub 管理员。
 - 前端登录页新增“使用 GitHub 登录”按钮。
 - 前端支持解析 OAuth 回调 token，登录后自动进入管理页。
+- 新增 `GITHUB_OAUTH_APP_SETUP.md`，记录 GitHub OAuth App 创建和本地环境变量配置步骤。
 - 更新 README、数据库说明、下一步计划和代码分析文档。
 
 ## v0.5.0 - 登录鉴权和后台保护

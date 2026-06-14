@@ -21,6 +21,7 @@
 ├── 需求.md                # 系统化需求说明
 ├── NEXT_STEPS.md          # 下一步开发计划
 ├── DATABASE.md            # 数据库和持久化说明
+├── GITHUB_OAUTH_APP_SETUP.md # GitHub OAuth App 创建指南
 ├── docs/archive/          # 已归档的阶段性文档
 ├── CHANGELOG.md           # 版本日志
 ├── CODE_ANALYSIS.md       # 代码分析文档
@@ -81,6 +82,8 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 如果已经初始化过管理员，直接在“登录”页使用 GitHub 或邮箱密码登录。
 
 ## GitHub OAuth 设置
+
+完整创建步骤见 [GITHUB_OAUTH_APP_SETUP.md](./GITHUB_OAUTH_APP_SETUP.md)。
 
 在 GitHub 创建 OAuth App 时，本地开发建议填写：
 
