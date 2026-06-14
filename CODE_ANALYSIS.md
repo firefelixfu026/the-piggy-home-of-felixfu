@@ -1,5 +1,37 @@
 # 代码分析文档
 
+## v0.5.0
+
+### 登录鉴权
+
+- `backend/app/auth.py`：新增密码哈希、密码校验、HS256 token 签发、token 校验、当前用户依赖和管理员依赖。
+- `backend/app/models.py`：`User` 模型新增 `password_hash` 字段，用于邮箱密码登录。
+- `backend/app/database.py`：启动时检测旧版 `users` 表，如果缺少 `password_hash` 字段会自动执行轻量迁移。
+- `backend/app/main.py`：新增 `RegisterIn`、`LoginIn` 请求模型，以及 `/api/auth/register`、`/api/auth/login`、`/api/auth/me`。
+- `POST /api/admin/articles`、`PUT /api/admin/articles/{article_id}`、`DELETE /api/admin/articles/{article_id}`：全部增加 `require_admin` 依赖。
+
+### 前端登录和后台保护
+
+- `frontend/src/App.jsx`：新增登录状态、token 本地保存、`/api/auth/me` 校验、登录/初始化管理员流程和退出登录。
+- `LoginWorkspace`：新增“登录”和“初始化管理员”两种模式。
+- `AdminWorkspace`：新增管理员会话条，未登录时不再显示后台表单。
+- 后台文章创建、编辑、删除请求会带 `Authorization: Bearer <token>`。
+- `frontend/src/styles.css`：新增登录页、模式切换、管理员会话条和移动端导航样式。
+
+### 小游戏仓库
+
+- 外部仓库 `card-war-made-by-class-3` 的 `js/main.js` 新增规则页返回来源状态。
+- 从开始页进入规则页会返回开始页，从局内进入规则页会返回局内。
+- 提交号：`4a65677 fix: return to game after viewing rules`。
+
+### 验证结果
+
+- `python -m compileall backend\app` 通过。
+- `npm.cmd run build` 通过。
+- `/api/health` 返回 `version: 0.5.0`。
+- 未登录访问后台文章接口返回 `401`。
+- 管理员注册/登录、`/api/auth/me`、带 token 的文章新增/编辑/删除冒烟测试通过。
+
 ## v0.4.0
 
 ### 管理后台接口

@@ -9,12 +9,13 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import create_access_token, get_current_user, hash_password, require_admin, verify_password
 from app.database import SessionLocal, get_db, init_db
-from app.models import Article, Comment, ReactionCounter, Tag
+from app.models import Article, Comment, ReactionCounter, Tag, User
 from app.seed import REACTION_TYPES, seed_database
 
 
-app = FastAPI(title="FelixFu Blog API", version="0.4.0")
+app = FastAPI(title="FelixFu Blog API", version="0.5.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,7 +34,7 @@ PROFILE = {
     "interests": ["长跑", "唱歌", "游戏"],
     "summary": "这里会逐步沉淀学习笔记、技术文章、个人项目、AI 自动化内容和小游戏实验。MVP 阶段先完成可展示结构，后续接入真实登录、数据库和云端部署。",
     "metrics": [
-        {"label": "MVP 状态", "value": "v0.4"},
+        {"label": "MVP 状态", "value": "v0.5"},
         {"label": "文章方向", "value": "技术/学习"},
         {"label": "扩展模块", "value": "AI + 游戏"},
     ],
@@ -72,6 +73,17 @@ class ArticleIn(BaseModel):
     readTime: str = "3 min"
 
 
+class RegisterIn(BaseModel):
+    email: str
+    password: str
+    displayName: str = "Felix Fu"
+
+
+class LoginIn(BaseModel):
+    email: str
+    password: str
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
@@ -82,7 +94,7 @@ def on_startup() -> None:
 @app.get("/api/health")
 def health(db: Session = Depends(get_db)) -> dict[str, str | int]:
     article_count = len(db.scalars(select(Article.id)).all())
-    return {"status": "ok", "version": "0.4.0", "articles": article_count}
+    return {"status": "ok", "version": "0.5.0", "articles": article_count}
 
 
 @app.get("/api/profile")
@@ -150,8 +162,51 @@ def create_reaction(article_id: str, reaction: ReactionIn, db: Session = Depends
     return {"articleId": article_id, "reactions": _reaction_counts(article)}
 
 
+@app.post("/api/auth/register")
+def register_admin(payload: RegisterIn, db: Session = Depends(get_db)) -> dict:
+    email = _normalize_email(payload.email)
+    password = _validate_password(payload.password)
+    display_name = payload.displayName.strip() or "Felix Fu"
+
+    if db.scalar(select(User).where(User.email == email)):
+        raise HTTPException(status_code=409, detail="Email is already registered")
+
+    if db.scalar(select(User.id).where(User.role == "admin")):
+        raise HTTPException(status_code=403, detail="Admin account is already initialized")
+
+    user = User(
+        email=email,
+        display_name=display_name,
+        password_hash=hash_password(password),
+        role="admin",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"token": create_access_token(user), "user": _user_to_dict(user)}
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginIn, db: Session = Depends(get_db)) -> dict:
+    email = _normalize_email(payload.email)
+    user = db.scalar(select(User).where(User.email == email))
+    if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    return {"token": create_access_token(user), "user": _user_to_dict(user)}
+
+
+@app.get("/api/auth/me")
+def get_me(current_user: User = Depends(get_current_user)) -> dict:
+    return {"user": _user_to_dict(current_user)}
+
+
 @app.post("/api/admin/articles")
-def create_admin_article(payload: ArticleIn, db: Session = Depends(get_db)) -> dict:
+def create_admin_article(
+    payload: ArticleIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
     title = payload.title.strip()
     if not title:
         raise HTTPException(status_code=400, detail="Article title is required")
@@ -175,7 +230,12 @@ def create_admin_article(payload: ArticleIn, db: Session = Depends(get_db)) -> d
 
 
 @app.put("/api/admin/articles/{article_id}")
-def update_admin_article(article_id: str, payload: ArticleIn, db: Session = Depends(get_db)) -> dict:
+def update_admin_article(
+    article_id: str,
+    payload: ArticleIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
     article = _get_article_or_404(db, article_id)
     article.title = _required_text(payload.title, "Article title is required")
     article.summary = _required_text(payload.summary, "Article summary is required")
@@ -188,7 +248,11 @@ def update_admin_article(article_id: str, payload: ArticleIn, db: Session = Depe
 
 
 @app.delete("/api/admin/articles/{article_id}")
-def delete_admin_article(article_id: str, db: Session = Depends(get_db)) -> dict[str, str]:
+def delete_admin_article(
+    article_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict[str, str]:
     article = _get_article_or_404(db, article_id)
     db.delete(article)
     db.commit()
@@ -300,6 +364,28 @@ def _required_text(value: str, message: str) -> str:
     if not cleaned:
         raise HTTPException(status_code=400, detail=message)
     return cleaned
+
+
+def _normalize_email(value: str) -> str:
+    email = value.strip().lower()
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        raise HTTPException(status_code=400, detail="A valid email is required")
+    return email
+
+
+def _validate_password(value: str) -> str:
+    if len(value) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    return value
+
+
+def _user_to_dict(user: User) -> dict:
+    return {
+        "id": user.id,
+        "email": user.email,
+        "displayName": user.display_name,
+        "role": user.role,
+    }
 
 
 def _clean_tags(tags: list[str]) -> list[str]:

@@ -7,12 +7,15 @@ import {
   Gamepad2,
   Github,
   Heart,
+  LogIn,
+  LogOut,
   MessageCircle,
   PencilLine,
   PlusCircle,
   RefreshCw,
   Save,
   Search,
+  ShieldCheck,
   Star,
   ThumbsDown,
   Trash2,
@@ -36,6 +39,7 @@ const navItems = [
   { id: 'articles', label: '文章', icon: BookOpen },
   { id: 'ai', label: 'AI', icon: Bot },
   { id: 'game', label: '游戏', icon: Gamepad2 },
+  { id: 'login', label: '登录', icon: LogIn },
   { id: 'admin', label: '管理', icon: FilePenLine }
 ];
 
@@ -56,6 +60,22 @@ function App() {
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [adminMessage, setAdminMessage] = useState('');
   const [isSavingArticle, setIsSavingArticle] = useState(false);
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('felix_blog_user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({
+    email: '',
+    password: '',
+    displayName: 'Felix Fu'
+  });
+  const [authMessage, setAuthMessage] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -79,6 +99,34 @@ function App() {
 
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (!authToken) {
+      localStorage.removeItem('felix_blog_token');
+      localStorage.removeItem('felix_blog_user');
+      setCurrentUser(null);
+      return;
+    }
+
+    async function loadCurrentUser() {
+      try {
+        const response = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${authToken}` }
+        });
+        if (!response.ok) {
+          logout(false);
+          return;
+        }
+        const result = await response.json();
+        setCurrentUser(result.user);
+        localStorage.setItem('felix_blog_user', JSON.stringify(result.user));
+      } catch {
+        setAuthMessage('后端服务不可用，无法校验登录状态');
+      }
+    }
+
+    loadCurrentUser();
+  }, [authToken]);
 
   async function refreshArticles() {
     const articlesRes = await fetch('/api/articles');
@@ -108,6 +156,63 @@ function App() {
 
     setComments(nextComments);
     setReactionCounts(nextReactionCounts);
+  }
+
+  function getAuthHeaders() {
+    return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  }
+
+  function updateAuthForm(field, value) {
+    setAuthForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function submitAuthForm(event) {
+    event.preventDefault();
+    setIsAuthLoading(true);
+    setAuthMessage('');
+
+    const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+    const payload = {
+      email: authForm.email,
+      password: authForm.password,
+      ...(authMode === 'register' ? { displayName: authForm.displayName } : {})
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAuthMessage(result.detail || '登录失败');
+        return;
+      }
+
+      localStorage.setItem('felix_blog_token', result.token);
+      localStorage.setItem('felix_blog_user', JSON.stringify(result.user));
+      setAuthToken(result.token);
+      setCurrentUser(result.user);
+      setAuthMessage(authMode === 'register' ? '管理员已初始化' : '已登录');
+      setActiveView('admin');
+    } catch {
+      setAuthMessage('后端服务不可用，登录失败');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  }
+
+  function logout(redirect = true) {
+    localStorage.removeItem('felix_blog_token');
+    localStorage.removeItem('felix_blog_user');
+    setAuthToken('');
+    setCurrentUser(null);
+    setAuthMessage('');
+    if (redirect) {
+      setActiveView('overview');
+    }
   }
 
   const tags = useMemo(() => {
@@ -225,6 +330,12 @@ function App() {
 
   async function submitArticleForm(event) {
     event.preventDefault();
+    if (!authToken) {
+      setAdminMessage('请先登录管理员账号');
+      setActiveView('login');
+      return;
+    }
+
     setIsSavingArticle(true);
     setAdminMessage('');
 
@@ -243,13 +354,16 @@ function App() {
     try {
       const response = await fetch(editingArticleId ? `/api/admin/articles/${editingArticleId}` : '/api/admin/articles', {
         method: editingArticleId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         setAdminMessage(error.detail || '保存失败');
+        if (response.status === 401 || response.status === 403) {
+          setActiveView('login');
+        }
         return;
       }
 
@@ -266,11 +380,22 @@ function App() {
 
   async function deleteArticle(article) {
     if (!window.confirm(`确定删除《${article.title}》吗？`)) return;
+    if (!authToken) {
+      setAdminMessage('请先登录管理员账号');
+      setActiveView('login');
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/admin/articles/${article.id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/admin/articles/${article.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       if (!response.ok) {
         setAdminMessage('删除失败');
+        if (response.status === 401 || response.status === 403) {
+          setActiveView('login');
+        }
         return;
       }
 
@@ -313,11 +438,24 @@ function App() {
         </nav>
 
         <div className="login-panel">
-          <span>登录入口</span>
-          <button className="icon-text-button" type="button" title="GitHub 登录后续接入">
-            <Github size={17} />
-            <span>GitHub</span>
-          </button>
+          {currentUser ? (
+            <>
+              <span>管理员</span>
+              <strong>{currentUser.displayName}</strong>
+              <button className="icon-text-button" type="button" onClick={() => logout()}>
+                <LogOut size={17} />
+                <span>退出</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <span>后台账号</span>
+              <button className="icon-text-button" type="button" onClick={() => setActiveView('login')}>
+                <LogIn size={17} />
+                <span>登录</span>
+              </button>
+            </>
+          )}
         </div>
       </aside>
 
@@ -360,7 +498,37 @@ function App() {
 
         {activeView === 'game' && <GameWorkspace />}
 
-        {activeView === 'admin' && (
+        {activeView === 'login' && (
+          <LoginWorkspace
+            authMode={authMode}
+            setAuthMode={setAuthMode}
+            authForm={authForm}
+            updateAuthForm={updateAuthForm}
+            submitAuthForm={submitAuthForm}
+            authMessage={authMessage}
+            isAuthLoading={isAuthLoading}
+            currentUser={currentUser}
+            logout={logout}
+            goToAdmin={() => setActiveView('admin')}
+          />
+        )}
+
+        {activeView === 'admin' && currentUser?.role !== 'admin' && (
+          <LoginWorkspace
+            authMode={authMode}
+            setAuthMode={setAuthMode}
+            authForm={authForm}
+            updateAuthForm={updateAuthForm}
+            submitAuthForm={submitAuthForm}
+            authMessage={authMessage || '请先登录管理员账号'}
+            isAuthLoading={isAuthLoading}
+            currentUser={currentUser}
+            logout={logout}
+            goToAdmin={() => setActiveView('admin')}
+          />
+        )}
+
+        {activeView === 'admin' && currentUser?.role === 'admin' && (
           <AdminWorkspace
             articles={articles}
             articleForm={articleForm}
@@ -372,6 +540,8 @@ function App() {
             resetArticleForm={resetArticleForm}
             startEditingArticle={startEditingArticle}
             deleteArticle={deleteArticle}
+            currentUser={currentUser}
+            logout={logout}
           />
         )}
       </main>
@@ -616,6 +786,121 @@ function GameWorkspace() {
   );
 }
 
+function LoginWorkspace({
+  authMode,
+  setAuthMode,
+  authForm,
+  updateAuthForm,
+  submitAuthForm,
+  authMessage,
+  isAuthLoading,
+  currentUser,
+  logout,
+  goToAdmin
+}) {
+  if (currentUser?.role === 'admin') {
+    return (
+      <section className="workspace">
+        <div className="section-heading">
+          <p className="eyebrow">账号</p>
+          <h1>已登录管理员账号</h1>
+        </div>
+        <div className="admin-panel auth-panel">
+          <div className="auth-user">
+            <ShieldCheck size={22} />
+            <div>
+              <strong>{currentUser.displayName}</strong>
+              <span>{currentUser.email}</span>
+            </div>
+          </div>
+          <div className="admin-actions">
+            <button className="primary-action" type="button" onClick={goToAdmin}>
+              <FilePenLine size={17} />
+              <span>进入后台</span>
+            </button>
+            <button className="ghost-button" type="button" onClick={() => logout()}>
+              <LogOut size={17} />
+              <span>退出登录</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="workspace">
+      <div className="section-heading">
+        <p className="eyebrow">账号</p>
+        <h1>管理员登录</h1>
+      </div>
+
+      <form className="admin-panel admin-form auth-panel" onSubmit={submitAuthForm}>
+        <div className="auth-mode-switch" aria-label="账号模式">
+          <button
+            type="button"
+            className={authMode === 'login' ? 'active' : ''}
+            onClick={() => setAuthMode('login')}
+          >
+            登录
+          </button>
+          <button
+            type="button"
+            className={authMode === 'register' ? 'active' : ''}
+            onClick={() => setAuthMode('register')}
+          >
+            初始化管理员
+          </button>
+        </div>
+
+        {authMode === 'register' && (
+          <label>
+            <span>显示名称</span>
+            <input
+              value={authForm.displayName}
+              onChange={(event) => updateAuthForm('displayName', event.target.value)}
+              placeholder="Felix Fu"
+              required
+            />
+          </label>
+        )}
+
+        <label>
+          <span>邮箱</span>
+          <input
+            type="email"
+            value={authForm.email}
+            onChange={(event) => updateAuthForm('email', event.target.value)}
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+
+        <label>
+          <span>密码</span>
+          <input
+            type="password"
+            value={authForm.password}
+            onChange={(event) => updateAuthForm('password', event.target.value)}
+            placeholder="至少 8 位"
+            minLength={8}
+            required
+          />
+        </label>
+
+        <div className="admin-actions">
+          <button className="primary-action" type="submit" disabled={isAuthLoading}>
+            <LogIn size={17} />
+            <span>{isAuthLoading ? '处理中' : authMode === 'register' ? '初始化' : '登录'}</span>
+          </button>
+        </div>
+
+        {authMessage && <p className="admin-message">{authMessage}</p>}
+      </form>
+    </section>
+  );
+}
+
 function AdminWorkspace({
   articles,
   articleForm,
@@ -626,13 +911,26 @@ function AdminWorkspace({
   submitArticleForm,
   resetArticleForm,
   startEditingArticle,
-  deleteArticle
+  deleteArticle,
+  currentUser,
+  logout
 }) {
   return (
     <section className="workspace">
       <div className="section-heading">
         <p className="eyebrow">管理后台</p>
         <h1>文章发布、编辑和删除</h1>
+      </div>
+
+      <div className="admin-session">
+        <div>
+          <ShieldCheck size={18} />
+          <span>{currentUser.displayName}</span>
+        </div>
+        <button className="ghost-button" type="button" onClick={() => logout()}>
+          <LogOut size={17} />
+          <span>退出</span>
+        </button>
       </div>
 
       <div className="admin-layout">

@@ -1,8 +1,8 @@
 # 数据持久化说明
 
-版本：v0.3.0
+版本：v0.5.0
 
-本项目已接入 PostgreSQL，把文章、评论、点赞、收藏、点踩从静态/内存数据改为数据库读写。
+本项目已接入 PostgreSQL，把文章、评论、点赞、收藏、点踩和管理员账号从静态/内存数据改为数据库读写。
 
 ## 1. 本地数据库启动
 
@@ -71,7 +71,7 @@ python -m pip install -r backend\requirements.txt
 
 当前 SQLAlchemy 模型包含：
 
-- `users`：用户表，预留邮箱登录和 GitHub OAuth。
+- `users`：用户表，包含邮箱、GitHub ID、显示名称、密码哈希、头像、角色和创建时间。
 - `articles`：文章表。
 - `tags`：标签表。
 - `article_tags`：文章和标签的关联表。
@@ -83,8 +83,9 @@ python -m pip install -r backend\requirements.txt
 FastAPI 启动时会自动执行：
 
 1. 创建数据库表。
-2. 如果文章表为空，写入 3 篇示例文章。
-3. 为每篇文章初始化 `like`、`favorite`、`downvote` 三种互动计数。
+2. 如果旧版 `users` 表缺少 `password_hash` 字段，自动补充该字段。
+3. 如果文章表为空，写入 3 篇示例文章。
+4. 为每篇文章初始化 `like`、`favorite`、`downvote` 三种互动计数。
 
 这部分代码位于：
 
@@ -152,6 +153,12 @@ PUT /api/admin/articles/{article_id}
 DELETE /api/admin/articles/{article_id}
 ```
 
+这些接口需要管理员登录后的请求头：
+
+```http
+Authorization: Bearer <token>
+```
+
 创建和编辑文章的请求体：
 
 ```json
@@ -165,7 +172,32 @@ DELETE /api/admin/articles/{article_id}
 }
 ```
 
-当前管理接口尚未加登录鉴权，后续 v0.5.0 会增加管理员登录和 JWT 保护。
+认证接口：
+
+```http
+POST /api/auth/register
+POST /api/auth/login
+GET /api/auth/me
+```
+
+初始化管理员：
+
+```json
+{
+  "email": "you@example.com",
+  "password": "至少 8 位密码",
+  "displayName": "Felix Fu"
+}
+```
+
+登录：
+
+```json
+{
+  "email": "you@example.com",
+  "password": "至少 8 位密码"
+}
+```
 
 ## 7. 验证命令
 
@@ -178,8 +210,8 @@ Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/articles?q=AI' -UseBasicParsin
 
 期望：
 
-- `/api/health` 返回 `version: 0.3.0`
-- `/api/health` 返回 `articles: 3`
+- `/api/health` 返回 `version: 0.5.0`
+- `/api/health` 返回 `articles` 数量
 - `/api/articles?q=AI` 能返回包含 AI 关键词或标签的文章
 
 ## 8. 后续改进

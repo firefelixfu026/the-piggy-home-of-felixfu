@@ -21,6 +21,7 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
     github_id: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
     display_name: Mapped[str] = mapped_column(String(100), default="访客")
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     role: Mapped[str] = mapped_column(String(30), default="reader")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
