@@ -1,5 +1,16 @@
 # 版本日志
 
+## v0.7.0 - Docker Compose 一键启动
+
+- 新增 `backend/Dockerfile`，容器内运行 FastAPI 后端。
+- 新增 `frontend/Dockerfile`，使用 Node 构建前端，再由 Nginx 服务静态文件。
+- 新增 `frontend/nginx.conf`，把 `/api` 反向代理到后端容器。
+- 扩展 `docker-compose.yml`，支持 `postgres`、`backend`、`frontend` 三服务一键启动。
+- 新增 Docker 健康检查，后端依赖数据库健康后启动，前端依赖后端健康后启动。
+- 新增 `.dockerignore`、`backend/.dockerignore`、`frontend/.dockerignore`，减少构建上下文。
+- 新增 `DOCKER_COMPOSE.md`，记录启动、停止、验证、Clash 代理和 OAuth 配置方式。
+- README 和下一步计划已更新为 Docker Compose 优先。
+
 ## v0.6.0 - GitHub OAuth 登录
 
 - 新增 GitHub OAuth 登录跳转和回调接口。

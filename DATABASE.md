@@ -1,6 +1,6 @@
 # 数据持久化说明
 
-版本：v0.6.0
+版本：v0.7.0
 
 本项目已接入 PostgreSQL，把文章、评论、点赞、收藏、点踩、邮箱管理员账号和 GitHub OAuth 用户信息从静态/内存数据改为数据库读写。
 
@@ -226,7 +226,7 @@ Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/articles?q=AI' -UseBasicParsin
 
 期望：
 
-- `/api/health` 返回 `version: 0.6.0`
+- `/api/health` 返回 `version: 0.7.0`
 - `/api/health` 返回 `articles` 数量
 - `/api/articles?q=AI` 能返回包含 AI 关键词或标签的文章
 

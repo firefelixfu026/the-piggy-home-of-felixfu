@@ -11,7 +11,8 @@
 你需要：
 
 - 一个可登录的 GitHub 账号。
-- 本地博客前端地址：`http://127.0.0.1:5173`
+- Docker 版本地博客前端地址：`http://127.0.0.1:8080`
+- 手动开发版前端地址：`http://127.0.0.1:5173`
 - 本地博客后端地址：`http://127.0.0.1:8000`
 - 本项目 GitHub OAuth 回调地址：
 
@@ -34,7 +35,7 @@ Application name:
 FelixFu Blog Local
 
 Homepage URL:
-http://127.0.0.1:5173
+http://127.0.0.1:8080
 
 Application description:
 FelixFu personal blog local development login
@@ -42,6 +43,14 @@ FelixFu personal blog local development login
 Authorization callback URL:
 http://127.0.0.1:8000/api/auth/github/callback
 ```
+
+如果你不用 Docker，而是手动运行 Vite 前端，则 `Homepage URL` 也可以写：
+
+```text
+http://127.0.0.1:5173
+```
+
+`Authorization callback URL` 仍保持 `http://127.0.0.1:8000/api/auth/github/callback`。
 
 8. 点击 `Register application`。
 
@@ -94,16 +103,29 @@ $env:GITHUB_ADMIN_LOGINS="user1,user2"
 https://github.com/你的登录名
 ```
 
-## 5. 启动前端并测试
+## 5. 启动项目并测试
 
-启动前端：
+推荐使用 Docker Compose：
+
+```powershell
+docker compose up -d --build
+```
+
+打开：
+
+```text
+http://127.0.0.1:8080
+```
+
+如果你不用 Docker，也可以手动启动前端：
+
 
 ```powershell
 cd frontend
 npm.cmd run dev -- --host 127.0.0.1 --port 5173
 ```
 
-打开：
+手动开发版打开：
 
 ```text
 http://127.0.0.1:5173

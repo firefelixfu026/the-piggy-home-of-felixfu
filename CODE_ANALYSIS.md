@@ -1,5 +1,34 @@
 # 代码分析文档
 
+## v0.7.0
+
+### Docker Compose 一键启动
+
+- `docker-compose.yml`：新增 `backend` 和 `frontend` 服务，保留 `postgres` 服务。
+- `backend`：使用 `backend/Dockerfile` 构建 FastAPI 镜像，容器内监听 `0.0.0.0:8000`，通过 `postgres:5432` 访问数据库。
+- `frontend`：使用 `frontend/Dockerfile` 多阶段构建，第一阶段用 Node/Vite 构建，第二阶段用 Nginx 服务静态文件。
+- `frontend/nginx.conf`：`/api/` 反向代理到 `http://backend:8000/api/`，其余路径走 SPA fallback。
+- `backend` healthcheck：访问容器内 `http://127.0.0.1:8000/api/health`。
+- `frontend` 依赖 `backend` healthy 后启动。
+- `.dockerignore`、`backend/.dockerignore`、`frontend/.dockerignore`：排除 `node_modules`、`dist`、虚拟环境、缓存和密钥文件。
+
+### 访问方式
+
+- Docker 版前端统一入口：`http://127.0.0.1:8080`。
+- 后端调试入口：`http://127.0.0.1:8000/api/health`。
+- PostgreSQL 仍映射本地 `5432`。
+- GitHub OAuth 本地回调仍使用 `http://127.0.0.1:8000/api/auth/github/callback`，回调后跳回 `FRONTEND_ORIGIN=http://127.0.0.1:8080`。
+
+### 验证结果
+
+- `docker compose config` 通过。
+- `docker compose up -d --build` 构建并启动成功。
+- `docker compose ps` 显示 `postgres` 和 `backend` healthy，`frontend` running。
+- `http://127.0.0.1:8080` 返回 200。
+- `http://127.0.0.1:8080/api/health` 返回 `version: 0.7.0`。
+- `http://127.0.0.1:8000/api/health` 返回 `version: 0.7.0`。
+- Docker 版 `GET /api/auth/github/start` 能正确跳转到 GitHub 授权页。
+
 ## v0.6.0
 
 ### GitHub OAuth 后端

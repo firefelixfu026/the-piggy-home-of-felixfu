@@ -21,6 +21,7 @@
 ├── 需求.md                # 系统化需求说明
 ├── NEXT_STEPS.md          # 下一步开发计划
 ├── DATABASE.md            # 数据库和持久化说明
+├── DOCKER_COMPOSE.md      # Docker Compose 一键启动说明
 ├── GITHUB_OAUTH_APP_SETUP.md # GitHub OAuth App 创建指南
 ├── docs/archive/          # 已归档的阶段性文档
 ├── CHANGELOG.md           # 版本日志
@@ -30,16 +31,30 @@
 
 ## 本地启动
 
-数据库：
+推荐优先使用 Docker Compose：
 
 ```powershell
-docker compose up -d postgres
+docker compose up -d --build
 ```
+
+统一访问地址：
+
+- 前端：`http://127.0.0.1:8080`
+- 后端健康检查：`http://127.0.0.1:8000/api/health`
+- Docker 说明：见 [DOCKER_COMPOSE.md](./DOCKER_COMPOSE.md)
 
 如果 PowerShell 找不到 `docker` 命令，可以先执行：
 
 ```powershell
 $env:Path = 'C:\Program Files\Docker\Docker\resources\bin;' + $env:Path
+```
+
+如果只想手动启动开发服务，可以使用下面的方式。
+
+数据库：
+
+```powershell
+docker compose up -d postgres
 ```
 
 前端：
@@ -75,7 +90,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 首次使用新的本地数据库时：
 
 1. 启动 PostgreSQL 和 FastAPI 后端。
-2. 打开前端 `http://127.0.0.1:5173`。
+2. 打开前端。Docker 版使用 `http://127.0.0.1:8080`，手动开发版使用 `http://127.0.0.1:5173`。
 3. 进入“登录”页，选择“初始化管理员”。
 4. 初始化成功后进入“管理”页发布、编辑或删除文章。
 
@@ -88,7 +103,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 在 GitHub 创建 OAuth App 时，本地开发建议填写：
 
 ```text
-Homepage URL: http://127.0.0.1:5173
+Homepage URL: http://127.0.0.1:8080
 Authorization callback URL: http://127.0.0.1:8000/api/auth/github/callback
 ```
 
@@ -105,7 +120,7 @@ GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
 
 ## 下一步
 
-v0.6.0 已完成 GitHub OAuth 登录。下一步建议完善 Docker Compose 一键启动和部署链路。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+v0.7.0 已完成 Docker Compose 一键启动。下一步建议接入 GitHub Actions 自动构建和测试。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
 
 Docker 安装和 GitHub 推送排查文档已归档到 `docs/archive/`。
 
