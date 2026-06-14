@@ -1,5 +1,19 @@
 # 代码分析文档
 
+## v0.2.3
+
+### Git 代理配置
+
+- 当前仓库的 Git local config 已设置 `http.proxy` 和 `https.proxy` 为 `http://127.0.0.1:7897`，让 Git for Windows 通过 Clash 访问 GitHub。
+- 该配置位于 `.git/config`，不会被提交到远程仓库。
+- 使用代理后已成功执行 `git ls-remote` 和 `git push`。
+
+### 小游戏响应式嵌入
+
+- `frontend/src/App.jsx`：调整 `GameWorkspace` 结构，把说明和按钮集中为控制条，把 iframe 放到全宽游戏区域，避免游戏被右侧说明栏压缩。
+- `frontend/src/styles.css`：将 `.game-layout` 改为单列布局，`.game-stage` 使用 `clamp(560px, calc(100vh - 210px), 900px)` 根据浏览器高度自适应，移动端使用 `72vh` 和 `500px` 最小高度。
+- 更新后的小游戏页面自身使用 `#game-container { width: 100vw; height: 100vh; }`，因此博客只需要给 iframe 提供稳定、宽裕的视口。
+
 ## v0.2.2
 
 ### 环境准备文档

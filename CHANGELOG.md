@@ -1,5 +1,12 @@
 # 版本日志
 
+## v0.2.3 - Git 代理和小游戏响应式修正
+
+- 为当前仓库配置 Git 本地代理 `http://127.0.0.1:7897`，通过 Clash 成功恢复 GitHub 推送。
+- 将之前本地未推送的 3 个提交推送到 GitHub `main` 分支。
+- 调整小游戏嵌入布局，从两列占位改为上方控制条 + 下方全宽 iframe，避免压缩游戏宽度。
+- 更新 `GITHUB_PUSH_TROUBLESHOOTING.md` 和 `NEXT_STEPS.md`，记录 GitHub 推送问题已解决。
+
 ## v0.2.2 - Docker 与 GitHub 推送准备文档
 
 - 新增 `DOCKER_DESKTOP_SETUP.md`，说明 Docker Desktop、WSL/Ubuntu、Docker Compose 的安装和验证步骤。

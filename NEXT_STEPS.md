@@ -1,25 +1,24 @@
 # 下一步开发计划
 
-当前项目状态：已经完成本地 MVP、FastAPI 接口骨架、小游戏嵌入和基础文档；本地 Git 仓库已绑定 GitHub 远程仓库 `https://github.com/firefelixfu026/the-piggy-home-of-felixfu.git`。  
-当前待处理问题：最近两次提交已在本地完成，但 Git for Windows 连接 `github.com:443` 超时，还没有成功推送到 GitHub。排查细节见 [GITHUB_PUSH_TROUBLESHOOTING.md](./GITHUB_PUSH_TROUBLESHOOTING.md)。
+当前项目状态：已经完成本地 MVP、FastAPI 接口骨架、小游戏嵌入、小游戏 iframe 响应式修正和基础文档；本地 Git 仓库已绑定 GitHub 远程仓库 `https://github.com/firefelixfu026/the-piggy-home-of-felixfu.git`。  
+GitHub 推送问题已通过 Clash `127.0.0.1:7897` 代理解决，排查细节见 [GITHUB_PUSH_TROUBLESHOOTING.md](./GITHUB_PUSH_TROUBLESHOOTING.md)。
 
 ## 1. 立即要做的事情
 
 ### 你需要做
 
-1. 确认当前电脑网络可以访问 GitHub。
-2. 如果使用代理或校园网，告诉我代理类型和端口，让我配置 Git 后重试推送。
-3. 打开本地博客检查小游戏页是否符合预期：`http://127.0.0.1:5173`。
-4. 按 [DOCKER_DESKTOP_SETUP.md](./DOCKER_DESKTOP_SETUP.md) 安装 Docker Desktop，并把验证命令输出发给我。
-5. 确认下一步是否优先做“数据库持久化”，也就是把文章、评论、点赞、收藏、点踩从静态数据变成真实数据库数据。
+1. 保持 Clash 运行，当前 Git 推送依赖 `127.0.0.1:7897`。
+2. 打开本地博客检查小游戏页是否符合预期：`http://127.0.0.1:5173`。
+3. 按 [DOCKER_DESKTOP_SETUP.md](./DOCKER_DESKTOP_SETUP.md) 安装 Docker Desktop，并把验证命令输出发给我。
+4. 确认下一步是否优先做“数据库持久化”，也就是把文章、评论、点赞、收藏、点踩从静态数据变成真实数据库数据。
 
 ### 我可以辅助完成
 
-1. 网络恢复后执行 `git push`，把本地未推送提交同步到 GitHub。
+1. 使用 Clash 代理继续执行后续 `git push`。
 2. 检查 GitHub 仓库里的文件结构是否完整。
 3. 继续实现 v0.3.0：PostgreSQL + SQLAlchemy + 数据库表结构 + 基础 CRUD 接口。
 4. 更新版本日志和代码分析文档，保持答辩材料可用。
-5. 如果你提供代理端口，我可以配置 Git 代理并重试推送。
+5. 如果 Clash 端口变化，我可以更新 Git 代理配置并重试推送。
 
 ## 2. 推荐下一版本：v0.3.0 数据持久化版本
 
@@ -71,7 +70,7 @@ v0.3.0 推荐目标：
 
 建议你先完成两件事：
 
-1. 告诉我你是否有本地代理，以及代理端口是多少；或者使用 GitHub Desktop 先推送。
-2. 安装 Docker Desktop，并把 `docker --version`、`docker compose version`、`wsl --list --verbose` 的输出发给我。
+1. 安装 Docker Desktop，并把 `docker --version`、`docker compose version`、`wsl --list --verbose` 的输出发给我。
+2. 在本地博客里检查小游戏页面是否还有尺寸或滚动问题。
 
 如果这两点都满足，就可以直接开始 v0.3.0 数据持久化开发。

@@ -374,19 +374,12 @@ function GameWorkspace() {
       </div>
 
       <div className="game-layout">
-        <div className="game-stage">
-          <iframe
-            key={frameKey}
-            title="决斗小游戏"
-            src={gameModule.playUrl}
-            loading="lazy"
-            allow="fullscreen; gamepad; autoplay"
-          />
-        </div>
         <div className="game-details">
           <span className="status-pill inline">{gameModule.status}</span>
-          <h2>Card War 在线试玩</h2>
-          <p>{gameModule.plan}</p>
+          <div className="game-copy">
+            <h2>Card War 在线试玩</h2>
+            <p>{gameModule.plan}</p>
+          </div>
           <div className="game-actions">
             <button type="button" onClick={() => setFrameKey((current) => current + 1)}>
               <RefreshCw size={17} />
@@ -401,6 +394,15 @@ function GameWorkspace() {
               <span>查看仓库</span>
             </a>
           </div>
+        </div>
+        <div className="game-stage">
+          <iframe
+            key={frameKey}
+            title="决斗小游戏"
+            src={gameModule.playUrl}
+            loading="lazy"
+            allow="fullscreen; gamepad; autoplay"
+          />
         </div>
       </div>
     </section>
