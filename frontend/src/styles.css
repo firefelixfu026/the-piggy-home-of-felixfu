@@ -399,6 +399,14 @@ h3 {
   background: #f4f6f8;
 }
 
+.comment strong {
+  color: #334155;
+}
+
+.comment span {
+  color: #5b6878;
+}
+
 .comment-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

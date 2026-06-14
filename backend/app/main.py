@@ -1,11 +1,17 @@
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+
+from app.database import SessionLocal, get_db, init_db
+from app.models import Article, Comment, ReactionCounter
+from app.seed import REACTION_TYPES, seed_database
 
 
-app = FastAPI(title="FelixFu Blog API", version="0.1.0")
+app = FastAPI(title="FelixFu Blog API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,41 +30,11 @@ PROFILE = {
     "interests": ["长跑", "唱歌", "游戏"],
     "summary": "这里会逐步沉淀学习笔记、技术文章、个人项目、AI 自动化内容和小游戏实验。MVP 阶段先完成可展示结构，后续接入真实登录、数据库和云端部署。",
     "metrics": [
-        {"label": "MVP 状态", "value": "v0.1"},
+        {"label": "MVP 状态", "value": "v0.3"},
         {"label": "文章方向", "value": "技术/学习"},
         {"label": "扩展模块", "value": "AI + 游戏"},
     ],
 }
-
-ARTICLES = [
-    {
-        "id": "react-fastapi-mvp",
-        "title": "React + FastAPI 个人博客 MVP 搭建记录",
-        "summary": "记录个人博客第一版的页面结构、接口规划和前后端分离方式，作为后续 PostgreSQL、登录和部署的基础。",
-        "content": "本篇文章聚焦 MVP 阶段：先搭建 React 页面，使用 FastAPI 提供个人信息、文章列表和搜索接口，再逐步接入 PostgreSQL、GitHub Actions 和云服务器部署。",
-        "tags": ["React", "FastAPI", "MVP"],
-        "date": "2026-06-14",
-        "readTime": "5 min",
-    },
-    {
-        "id": "running-and-study",
-        "title": "长跑、学习和项目节奏",
-        "summary": "把长跑训练里的节奏感迁移到项目推进中，按周拆解任务，稳定积累可展示成果。",
-        "content": "个人博客的建设也可以像训练计划一样推进：先有可运行版本，再逐步增加数据库、鉴权、自动化、AI 和小游戏模块。",
-        "tags": ["长跑", "学习方法", "计划"],
-        "date": "2026-06-14",
-        "readTime": "3 min",
-    },
-    {
-        "id": "ai-digest-plan",
-        "title": "每日技术新闻和文章 AI 总结计划",
-        "summary": "规划 AI 自动化模块：每天抓取技术新闻，自动提炼摘要，并为站内文章生成结构化总结。",
-        "content": "AI 自动化模块会分两步实现。第一步展示占位数据和页面入口，第二步接入真实模型和定时任务，第三步缓存摘要结果并形成可检索知识库。",
-        "tags": ["AI", "自动化", "技术新闻"],
-        "date": "2026-06-14",
-        "readTime": "4 min",
-    },
-]
 
 AI_NEWS = [
     {
@@ -73,24 +49,28 @@ AI_NEWS = [
     },
 ]
 
-COMMENTS: dict[str, list[str]] = {
-    "react-fastapi-mvp": ["第一版先把前后端结构跑起来，后续再接数据库。"]
-}
-
-REACTIONS: dict[str, dict[str, int]] = {}
-
 
 class CommentIn(BaseModel):
     content: str
+    authorName: str | None = None
 
 
 class ReactionIn(BaseModel):
     type: Literal["like", "favorite", "downvote"]
+    active: bool = True
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
+    with SessionLocal() as db:
+        seed_database(db)
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "version": "0.1.0"}
+def health(db: Session = Depends(get_db)) -> dict[str, str | int]:
+    article_count = len(db.scalars(select(Article.id)).all())
+    return {"status": "ok", "version": "0.3.0", "articles": article_count}
 
 
 @app.get("/api/profile")
@@ -99,54 +79,63 @@ def get_profile() -> dict:
 
 
 @app.get("/api/articles")
-def list_articles(q: str | None = Query(default=None)) -> list[dict]:
+def list_articles(q: str | None = Query(default=None), db: Session = Depends(get_db)) -> list[dict]:
+    articles = _load_articles(db)
     if not q:
-        return ARTICLES
+        return [_article_to_dict(article) for article in articles]
 
     keyword = q.strip().lower()
-    return [
+    filtered = [
         article
-        for article in ARTICLES
-        if keyword in " ".join(
+        for article in articles
+        if keyword
+        in " ".join(
             [
-                article["title"],
-                article["summary"],
-                article["content"],
-                " ".join(article["tags"]),
+                article.title,
+                article.summary,
+                article.content,
+                " ".join(tag.name for tag in article.tags),
             ]
         ).lower()
     ]
+    return [_article_to_dict(article) for article in filtered]
 
 
 @app.get("/api/articles/{article_id}")
-def get_article(article_id: str) -> dict:
-    article = next((item for item in ARTICLES if item["id"] == article_id), None)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-    return {**article, "comments": COMMENTS.get(article_id, [])}
+def get_article(article_id: str, db: Session = Depends(get_db)) -> dict:
+    article = _get_article_or_404(db, article_id)
+    return _article_to_dict(article)
 
 
 @app.post("/api/articles/{article_id}/comments")
-def create_comment(article_id: str, comment: CommentIn) -> dict:
-    if not any(item["id"] == article_id for item in ARTICLES):
-        raise HTTPException(status_code=404, detail="Article not found")
-
+def create_comment(article_id: str, comment: CommentIn, db: Session = Depends(get_db)) -> dict:
+    article = _get_article_or_404(db, article_id)
     content = comment.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Comment content is required")
 
-    COMMENTS.setdefault(article_id, []).append(content)
-    return {"articleId": article_id, "comments": COMMENTS[article_id]}
+    db.add(
+        Comment(
+            article_id=article.id,
+            author_name=(comment.authorName or "访客").strip() or "访客",
+            content=content,
+        )
+    )
+    db.commit()
+    db.refresh(article)
+    article = _get_article_or_404(db, article_id)
+    return {"articleId": article_id, "comments": [_comment_to_dict(item) for item in article.comments]}
 
 
 @app.post("/api/articles/{article_id}/reaction")
-def create_reaction(article_id: str, reaction: ReactionIn) -> dict:
-    if not any(item["id"] == article_id for item in ARTICLES):
-        raise HTTPException(status_code=404, detail="Article not found")
-
-    current = REACTIONS.setdefault(article_id, {"like": 0, "favorite": 0, "downvote": 0})
-    current[reaction.type] += 1
-    return {"articleId": article_id, "reactions": current}
+def create_reaction(article_id: str, reaction: ReactionIn, db: Session = Depends(get_db)) -> dict:
+    article = _get_article_or_404(db, article_id)
+    counter = _get_or_create_reaction_counter(db, article.id, reaction.type)
+    counter.count = max(0, counter.count + (1 if reaction.active else -1))
+    db.commit()
+    db.refresh(article)
+    article = _get_article_or_404(db, article_id)
+    return {"articleId": article_id, "reactions": _reaction_counts(article)}
 
 
 @app.get("/api/ai/news")
@@ -162,3 +151,78 @@ def get_card_war_info() -> dict[str, str]:
         "playUrl": "https://firefelixfu026.github.io/card-war-made-by-class-3/",
         "status": "embedded",
     }
+
+
+def _load_articles(db: Session) -> list[Article]:
+    statement = (
+        select(Article)
+        .options(
+            selectinload(Article.tags),
+            selectinload(Article.comments),
+            selectinload(Article.reactions),
+        )
+        .order_by(Article.created_at.desc())
+    )
+    return list(db.scalars(statement).all())
+
+
+def _get_article_or_404(db: Session, article_id: str) -> Article:
+    article = db.scalar(
+        select(Article)
+        .where(Article.id == article_id)
+        .options(
+            selectinload(Article.tags),
+            selectinload(Article.comments),
+            selectinload(Article.reactions),
+        )
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return article
+
+
+def _article_to_dict(article: Article) -> dict:
+    return {
+        "id": article.id,
+        "title": article.title,
+        "summary": article.summary,
+        "content": article.content,
+        "tags": [tag.name for tag in sorted(article.tags, key=lambda item: item.name)],
+        "date": article.date,
+        "readTime": article.read_time,
+        "comments": [_comment_to_dict(comment) for comment in article.comments],
+        "reactions": _reaction_counts(article),
+    }
+
+
+def _comment_to_dict(comment: Comment) -> dict:
+    return {
+        "id": comment.id,
+        "authorName": comment.author_name,
+        "content": comment.content,
+        "createdAt": comment.created_at.isoformat(),
+    }
+
+
+def _reaction_counts(article: Article) -> dict[str, int]:
+    counts = {reaction_type: 0 for reaction_type in REACTION_TYPES}
+    for reaction in article.reactions:
+        counts[reaction.reaction_type] = reaction.count
+    return counts
+
+
+def _get_or_create_reaction_counter(db: Session, article_id: str, reaction_type: str) -> ReactionCounter:
+    counter = db.scalar(
+        select(ReactionCounter).where(
+            ReactionCounter.article_id == article_id,
+            ReactionCounter.reaction_type == reaction_type,
+        )
+    )
+    if counter:
+        return counter
+
+    counter = ReactionCounter(article_id=article_id, reaction_type=reaction_type, count=0)
+    db.add(counter)
+    db.flush()
+    return counter
+

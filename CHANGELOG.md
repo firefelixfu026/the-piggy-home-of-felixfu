@@ -1,5 +1,14 @@
 # 版本日志
 
+## v0.3.0 - PostgreSQL 数据持久化版本
+
+- 新增 `docker-compose.yml`，通过 Docker Compose 启动 PostgreSQL。
+- 新增 SQLAlchemy 数据库层、数据模型和种子数据初始化。
+- 后端 `/api/articles`、`/api/articles/{id}/comments`、`/api/articles/{id}/reaction` 改为数据库读写。
+- 前端评论、点赞、收藏、点踩改为调用后端接口，数据可持久化。
+- 新增 `DATABASE.md`，记录数据库启动、表结构、接口行为和验证命令。
+- 更新 README、下一步计划和代码分析文档。
+
 ## v0.2.3 - Git 代理和小游戏响应式修正
 
 - 为当前仓库配置 Git 本地代理 `http://127.0.0.1:7897`，通过 Clash 成功恢复 GitHub 推送。

@@ -16,8 +16,10 @@
 .
 ├── frontend/              # React 前端
 ├── backend/               # FastAPI 后端
+├── docker-compose.yml     # PostgreSQL 本地数据库
 ├── 需求.md                # 系统化需求说明
 ├── NEXT_STEPS.md          # 下一步开发计划
+├── DATABASE.md            # 数据库和持久化说明
 ├── DOCKER_DESKTOP_SETUP.md # Docker Desktop 安装与验证
 ├── GITHUB_PUSH_TROUBLESHOOTING.md # GitHub 推送排查
 ├── CHANGELOG.md           # 版本日志
@@ -26,6 +28,18 @@
 ```
 
 ## 本地启动
+
+数据库：
+
+```powershell
+docker compose up -d postgres
+```
+
+如果 PowerShell 找不到 `docker` 命令，可以先执行：
+
+```powershell
+$env:Path = 'C:\Program Files\Docker\Docker\resources\bin;' + $env:Path
+```
 
 前端：
 
@@ -46,6 +60,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 - 前端：`http://127.0.0.1:5173`
 - 后端健康检查：`http://127.0.0.1:8000/api/health`
+- 数据库说明：见 [DATABASE.md](./DATABASE.md)
 
 ## 已集成模块
 
@@ -53,7 +68,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 ## 下一步
 
-当前最建议推进 v0.3.0 数据持久化版本：接入 PostgreSQL，把文章、评论、点赞、收藏、点踩从静态/内存数据改为数据库数据。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+v0.3.0 已完成 PostgreSQL 数据持久化。下一步建议推进 v0.4.0 文章管理后台，支持管理员发布、编辑、删除文章。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
 
 开始 v0.3.0 前，需要先完成 Docker Desktop 安装与验证，步骤见 [DOCKER_DESKTOP_SETUP.md](./DOCKER_DESKTOP_SETUP.md)。
 

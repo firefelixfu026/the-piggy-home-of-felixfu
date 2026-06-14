@@ -31,9 +31,10 @@ function App() {
   const [articles, setArticles] = useState(fallbackArticles);
   const [aiNews, setAiNews] = useState(fallbackNews);
   const [reactions, setReactions] = useState({});
+  const [reactionCounts, setReactionCounts] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
   const [comments, setComments] = useState({
-    'react-fastapi-mvp': ['第一版先把前后端结构跑起来，后续再接数据库。']
+    'react-fastapi-mvp': [{ id: 'local-1', authorName: '访客', content: '第一版先把前后端结构跑起来，后续再接数据库。' }]
   });
 
   useEffect(() => {
@@ -49,7 +50,9 @@ function App() {
           setProfile(await profileRes.json());
         }
         if (articlesRes.ok) {
-          setArticles(await articlesRes.json());
+          const articleData = await articlesRes.json();
+          setArticles(articleData);
+          hydrateArticleState(articleData);
         }
         if (newsRes.ok) {
           setAiNews(await newsRes.json());
@@ -61,6 +64,27 @@ function App() {
 
     loadInitialData();
   }, []);
+
+  function hydrateArticleState(nextArticles) {
+    const nextComments = {};
+    const nextReactionCounts = {};
+
+    nextArticles.forEach((article) => {
+      nextComments[article.id] = (article.comments || []).map((comment, index) =>
+        typeof comment === 'string'
+          ? { id: `${article.id}-${index}`, authorName: '访客', content: comment }
+          : comment
+      );
+      nextReactionCounts[article.id] = {
+        like: article.reactions?.like || 0,
+        favorite: article.reactions?.favorite || 0,
+        downvote: article.reactions?.downvote || 0
+      };
+    });
+
+    setComments(nextComments);
+    setReactionCounts(nextReactionCounts);
+  }
 
   const tags = useMemo(() => {
     const uniqueTags = new Set(articles.flatMap((article) => article.tags));
@@ -77,25 +101,78 @@ function App() {
     });
   }, [articles, query, selectedTag]);
 
-  function toggleReaction(articleId, type) {
+  async function toggleReaction(articleId, type) {
+    const nextActive = !reactions[articleId]?.[type];
+
     setReactions((current) => ({
       ...current,
       [articleId]: {
         ...current[articleId],
-        [type]: !current[articleId]?.[type]
+        [type]: nextActive
       }
     }));
+
+    setReactionCounts((current) => ({
+      ...current,
+      [articleId]: {
+        like: current[articleId]?.like || 0,
+        favorite: current[articleId]?.favorite || 0,
+        downvote: current[articleId]?.downvote || 0,
+        [type]: Math.max(0, (current[articleId]?.[type] || 0) + (nextActive ? 1 : -1))
+      }
+    }));
+
+    try {
+      const response = await fetch(`/api/articles/${articleId}/reaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, active: nextActive })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setReactionCounts((current) => ({
+          ...current,
+          [articleId]: result.reactions
+        }));
+      }
+    } catch {
+      // Keep the optimistic local state when the API is unavailable.
+    }
   }
 
-  function submitComment(articleId) {
+  async function submitComment(articleId) {
     const value = commentDrafts[articleId]?.trim();
     if (!value) return;
 
+    setCommentDrafts((current) => ({ ...current, [articleId]: '' }));
+
+    try {
+      const response = await fetch(`/api/articles/${articleId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: value, authorName: '访客' })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setComments((current) => ({
+          ...current,
+          [articleId]: result.comments
+        }));
+        return;
+      }
+    } catch {
+      // Fall through to local-only behavior for standalone frontend previews.
+    }
+
     setComments((current) => ({
       ...current,
-      [articleId]: [...(current[articleId] || []), value]
+      [articleId]: [
+        ...(current[articleId] || []),
+        { id: `${articleId}-${Date.now()}`, authorName: '访客', content: value }
+      ]
     }));
-    setCommentDrafts((current) => ({ ...current, [articleId]: '' }));
   }
 
   return (
@@ -161,6 +238,7 @@ function App() {
             selectedTag={selectedTag}
             setSelectedTag={setSelectedTag}
             reactions={reactions}
+            reactionCounts={reactionCounts}
             toggleReaction={toggleReaction}
             comments={comments}
             commentDrafts={commentDrafts}
@@ -233,6 +311,7 @@ function ArticleWorkspace({
   selectedTag,
   setSelectedTag,
   reactions,
+  reactionCounts,
   toggleReaction,
   comments,
   commentDrafts,
@@ -278,18 +357,21 @@ function ArticleWorkspace({
               <IconToggle
                 active={reactions[article.id]?.like}
                 label="点赞"
+                count={reactionCounts[article.id]?.like || 0}
                 icon={Heart}
                 onClick={() => toggleReaction(article.id, 'like')}
               />
               <IconToggle
                 active={reactions[article.id]?.favorite}
                 label="收藏"
+                count={reactionCounts[article.id]?.favorite || 0}
                 icon={Star}
                 onClick={() => toggleReaction(article.id, 'favorite')}
               />
               <IconToggle
                 active={reactions[article.id]?.downvote}
                 label="点踩"
+                count={reactionCounts[article.id]?.downvote || 0}
                 icon={ThumbsDown}
                 onClick={() => toggleReaction(article.id, 'downvote')}
               />
@@ -301,8 +383,9 @@ function ArticleWorkspace({
                 <span>评论</span>
               </div>
               {(comments[article.id] || []).map((comment, index) => (
-                <p className="comment" key={`${article.id}-${index}`}>
-                  {comment}
+                <p className="comment" key={comment.id || `${article.id}-${index}`}>
+                  <strong>{comment.authorName || '访客'}：</strong>
+                  <span>{comment.content}</span>
                 </p>
               ))}
               <div className="comment-form">
@@ -409,11 +492,11 @@ function GameWorkspace() {
   );
 }
 
-function IconToggle({ active, label, icon: Icon, onClick }) {
+function IconToggle({ active, label, count, icon: Icon, onClick }) {
   return (
     <button className={active ? 'icon-toggle active' : 'icon-toggle'} type="button" onClick={onClick} title={label}>
       <Icon size={17} />
-      <span>{label}</span>
+      <span>{label} {count}</span>
     </button>
   );
 }

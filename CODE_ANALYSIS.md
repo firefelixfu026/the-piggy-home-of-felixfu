@@ -1,5 +1,31 @@
 # 代码分析文档
 
+## v0.3.0
+
+### PostgreSQL 与 Docker
+
+- `docker-compose.yml`：新增 PostgreSQL 16 容器，配置数据库名、账号、密码、端口映射、持久化 volume 和健康检查。
+- `.env.example`：更新 `DATABASE_URL`，使用 `postgresql+psycopg://felix_blog:felix_blog_dev@localhost:5432/felix_blog`。
+- `backend/requirements.txt`：新增 `sqlalchemy` 和 `psycopg[binary]`。
+
+### 后端持久化
+
+- `backend/app/database.py`：集中管理 SQLAlchemy engine、SessionLocal、Base、建表和 FastAPI DB 依赖。
+- `backend/app/models.py`：新增用户、文章、标签、文章标签关联、评论和互动计数模型。
+- `backend/app/seed.py`：新增 3 篇示例文章和默认互动计数的初始化逻辑。
+- `backend/app/main.py`：启动时自动建表和写入种子数据；文章列表、文章搜索、评论提交、互动提交全部改为数据库读写。
+
+### 前端联调
+
+- `frontend/src/App.jsx`：启动时从 `/api/articles` 读取评论和互动计数；发表评论调用 `/comments` 接口；点赞、收藏、点踩调用 `/reaction` 接口并同步计数。
+- `frontend/src/styles.css`：补充评论作者和内容的显示样式。
+
+### 文档
+
+- `DATABASE.md`：记录本地数据库启动、连接信息、表结构、接口行为和验证命令。
+- `README.md`：加入数据库启动步骤和 v0.4.0 下一步方向。
+- `NEXT_STEPS.md`：更新项目状态和下一步计划。
+
 ## v0.2.3
 
 ### Git 代理配置

@@ -1,0 +1,83 @@
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+
+article_tags = Table(
+    "article_tags",
+    Base.metadata,
+    Column("article_id", ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
+    github_id: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    display_name: Mapped[str] = mapped_column(String(100), default="访客")
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    role: Mapped[str] = mapped_column(String(30), default="reader")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Article(Base):
+    __tablename__ = "articles"
+
+    id: Mapped[str] = mapped_column(String(120), primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    date: Mapped[str] = mapped_column(String(20), nullable=False)
+    read_time: Mapped[str] = mapped_column(String(30), default="3 min")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    tags: Mapped[list["Tag"]] = relationship(secondary=article_tags, back_populates="articles")
+    comments: Mapped[list["Comment"]] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+        order_by="Comment.created_at",
+    )
+    reactions: Mapped[list["ReactionCounter"]] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+    )
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
+
+    articles: Mapped[list[Article]] = relationship(secondary=article_tags, back_populates="tags")
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    article_id: Mapped[str] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), index=True)
+    author_name: Mapped[str] = mapped_column(String(100), default="访客")
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    article: Mapped[Article] = relationship(back_populates="comments")
+
+
+class ReactionCounter(Base):
+    __tablename__ = "reaction_counters"
+    __table_args__ = (UniqueConstraint("article_id", "reaction_type", name="uq_article_reaction"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    article_id: Mapped[str] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), index=True)
+    reaction_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+    article: Mapped[Article] = relationship(back_populates="reactions")
