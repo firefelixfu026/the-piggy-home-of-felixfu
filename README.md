@@ -1,5 +1,7 @@
 # FelixFu 个人博客
 
+[![CI](https://github.com/firefelixfu026/the-piggy-home-of-felixfu/actions/workflows/ci.yml/badge.svg)](https://github.com/firefelixfu026/the-piggy-home-of-felixfu/actions/workflows/ci.yml)
+
 这是付江樊的综合型个人博客项目，目标是从 6 小时内可展示 MVP 起步，逐步扩展为支持文章发布、搜索、评论、点赞、收藏、点踩、管理员登录、GitHub 登录、AI 自动化内容、小游戏和云服务器部署的完整前后端分离系统。
 
 ## 技术栈
@@ -8,7 +10,7 @@
 - 后端：FastAPI
 - 数据库：PostgreSQL
 - 鉴权：邮箱密码 + GitHub OAuth + HS256 token
-- 自动化：GitHub Actions，后续接入
+- 自动化：GitHub Actions CI
 - 部署：云服务器 + Docker + Nginx，后续接入
 
 ## 目录结构
@@ -84,6 +86,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 - 登录鉴权：导航栏“登录”页支持 GitHub OAuth、初始化管理员和邮箱密码登录，登录状态会保存到浏览器本地。
 - 管理后台：导航栏“管理”页支持发布、编辑、删除文章，后台操作需要管理员 token。
 - 数据持久化：文章、评论、点赞、收藏、点踩写入 PostgreSQL。
+- 自动测试：GitHub Actions 每次 push/PR 自动检查后端编译、前端构建和 Docker Compose 配置。
 
 ## 管理员登录
 
@@ -120,7 +123,7 @@ GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
 
 ## 下一步
 
-v0.7.0 已完成 Docker Compose 一键启动。下一步建议接入 GitHub Actions 自动构建和测试。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+v0.8.0 已完成 GitHub Actions 自动测试。下一步建议准备云服务器部署、Nginx、域名和 HTTPS。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
 
 Docker 安装和 GitHub 推送排查文档已归档到 `docs/archive/`。
 

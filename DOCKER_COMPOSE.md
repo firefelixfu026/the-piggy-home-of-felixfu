@@ -112,7 +112,7 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/health'
 
 ```text
 status: ok
-version: 0.7.0
+version: 0.8.0
 ```
 
 ## 6. 停止服务

@@ -30,7 +30,7 @@ from app.seed import REACTION_TYPES, seed_database
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173").rstrip("/")
 
 
-app = FastAPI(title="FelixFu Blog API", version="0.7.0")
+app = FastAPI(title="FelixFu Blog API", version="0.8.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,7 +49,7 @@ PROFILE = {
     "interests": ["长跑", "唱歌", "游戏"],
     "summary": "这里会逐步沉淀学习笔记、技术文章、个人项目、AI 自动化内容和小游戏实验。MVP 阶段先完成可展示结构，后续接入真实登录、数据库和云端部署。",
     "metrics": [
-        {"label": "MVP 状态", "value": "v0.7"},
+        {"label": "MVP 状态", "value": "v0.8"},
         {"label": "文章方向", "value": "技术/学习"},
         {"label": "扩展模块", "value": "AI + 游戏"},
     ],
@@ -109,7 +109,7 @@ def on_startup() -> None:
 @app.get("/api/health")
 def health(db: Session = Depends(get_db)) -> dict[str, str | int]:
     article_count = len(db.scalars(select(Article.id)).all())
-    return {"status": "ok", "version": "0.7.0", "articles": article_count}
+    return {"status": "ok", "version": "0.8.0", "articles": article_count}
 
 
 @app.get("/api/profile")

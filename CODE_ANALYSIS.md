@@ -1,5 +1,42 @@
 # 代码分析文档
 
+## v0.8.0
+
+### GitHub Actions CI
+
+- `.github/workflows/ci.yml`：新增 CI 工作流。
+- 触发条件：push 到 `main`、pull request 到 `main`、手动触发 `workflow_dispatch`。
+- `permissions.contents` 设置为 `read`，CI 只需要读取仓库内容。
+
+### Backend Job
+
+- 使用 `actions/checkout@v4` 拉取代码。
+- 使用 `actions/setup-python@v5` 安装 Python 3.12。
+- 开启 pip 缓存，缓存键基于 `backend/requirements.txt`。
+- 执行 `pip install -r requirements.txt`。
+- 执行 `python -m compileall app`。
+- 执行 `python -c "from app.main import app; assert app.version == '0.8.0'; print(app.title)"`，验证 FastAPI app 可以被导入。
+
+### Frontend Job
+
+- 使用 `actions/setup-node@v4` 安装 Node 22。
+- 开启 npm 缓存，缓存键基于 `frontend/package-lock.json`。
+- 执行 `npm ci`。
+- 执行 `npm run build`。
+
+### Compose Job
+
+- 执行 `docker compose version`。
+- 执行 `docker compose config`，验证 Compose 配置可解析。
+
+### 本地验证结果
+
+- `python -m compileall backend\app` 通过。
+- `python -c "from app.main import app; assert app.version == '0.8.0'; print(app.title)"` 通过。
+- `npm.cmd ci` 通过。
+- `npm.cmd run build` 通过。
+- `docker compose config` 通过。
+
 ## v0.7.0
 
 ### Docker Compose 一键启动

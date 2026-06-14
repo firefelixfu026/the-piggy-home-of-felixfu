@@ -1,5 +1,15 @@
 # 版本日志
 
+## v0.8.0 - GitHub Actions 自动测试
+
+- 新增 `.github/workflows/ci.yml`。
+- CI 在 push 到 `main`、PR 到 `main`、手动触发时运行。
+- 新增 `Backend` job：安装 Python 3.12、安装后端依赖、编译后端代码、导入 FastAPI app。
+- 新增 `Frontend` job：安装 Node 22、执行 `npm ci`、执行 `npm run build`。
+- 新增 `Compose` job：检查 Docker Compose 版本并执行 `docker compose config`。
+- README 新增 CI badge。
+- 更新 README、下一步计划、数据库说明、Docker Compose 文档和代码分析文档。
+
 ## v0.7.0 - Docker Compose 一键启动
 
 - 新增 `backend/Dockerfile`，容器内运行 FastAPI 后端。
