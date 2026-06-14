@@ -17,6 +17,7 @@
 ├── frontend/              # React 前端
 ├── backend/               # FastAPI 后端
 ├── 需求.md                # 系统化需求说明
+├── NEXT_STEPS.md          # 下一步开发计划
 ├── CHANGELOG.md           # 版本日志
 ├── CODE_ANALYSIS.md       # 代码分析文档
 └── README.md              # 项目说明
@@ -48,11 +49,19 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 - 决斗小游戏：博客内通过 iframe 嵌入 `https://firefelixfu026.github.io/card-war-made-by-class-3/`，同时保留新窗口打开和源码仓库入口。
 
+## 下一步
+
+当前最建议推进 v0.3.0 数据持久化版本：接入 PostgreSQL，把文章、评论、点赞、收藏、点踩从静态/内存数据改为数据库数据。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+
 ## GitHub 连接
 
-当前项目还没有绑定 GitHub 远程仓库。后续如果要满足“每次版本更新后推送 GitHub”的要求，需要提供：
+当前项目已绑定 GitHub 远程仓库：
 
-- GitHub 仓库地址
-- 是否使用 GitHub OAuth 登录
-- GitHub OAuth App 的 Client ID 和 Client Secret
-- GitHub Actions 部署所需的服务器 SSH 信息
+- 仓库地址：`https://github.com/firefelixfu026/the-piggy-home-of-felixfu`
+- 用户名：`felixfu026`
+
+后续如果要继续完成 GitHub OAuth 登录和 GitHub Actions 部署，还需要：
+
+- GitHub OAuth App 的 Client ID 和 Client Secret。
+- GitHub Actions 部署所需的服务器 SSH 信息。
+- 云服务器公网 IP、SSH 用户名、部署目录和域名信息。
