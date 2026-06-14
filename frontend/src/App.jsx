@@ -3,24 +3,40 @@ import {
   BookOpen,
   Bot,
   ExternalLink,
+  FilePenLine,
   Gamepad2,
   Github,
   Heart,
   MessageCircle,
+  PencilLine,
+  PlusCircle,
   RefreshCw,
+  Save,
   Search,
   Star,
   ThumbsDown,
+  Trash2,
   UserRound,
+  X,
   Zap
 } from 'lucide-react';
 import { aiNews as fallbackNews, articles as fallbackArticles, gameModule, profile as fallbackProfile } from './data.js';
+
+const createEmptyArticleForm = () => ({
+  title: '',
+  summary: '',
+  content: '',
+  tags: '',
+  date: new Date().toISOString().slice(0, 10),
+  readTime: '3 min'
+});
 
 const navItems = [
   { id: 'overview', label: '首页', icon: UserRound },
   { id: 'articles', label: '文章', icon: BookOpen },
   { id: 'ai', label: 'AI', icon: Bot },
-  { id: 'game', label: '游戏', icon: Gamepad2 }
+  { id: 'game', label: '游戏', icon: Gamepad2 },
+  { id: 'admin', label: '管理', icon: FilePenLine }
 ];
 
 function App() {
@@ -36,27 +52,26 @@ function App() {
   const [comments, setComments] = useState({
     'react-fastapi-mvp': [{ id: 'local-1', authorName: '访客', content: '第一版先把前后端结构跑起来，后续再接数据库。' }]
   });
+  const [articleForm, setArticleForm] = useState(createEmptyArticleForm);
+  const [editingArticleId, setEditingArticleId] = useState(null);
+  const [adminMessage, setAdminMessage] = useState('');
+  const [isSavingArticle, setIsSavingArticle] = useState(false);
 
   useEffect(() => {
     async function loadInitialData() {
       try {
-        const [profileRes, articlesRes, newsRes] = await Promise.all([
+        const [profileRes, newsRes] = await Promise.all([
           fetch('/api/profile'),
-          fetch('/api/articles'),
           fetch('/api/ai/news')
         ]);
 
         if (profileRes.ok) {
           setProfile(await profileRes.json());
         }
-        if (articlesRes.ok) {
-          const articleData = await articlesRes.json();
-          setArticles(articleData);
-          hydrateArticleState(articleData);
-        }
         if (newsRes.ok) {
           setAiNews(await newsRes.json());
         }
+        await refreshArticles();
       } catch {
         // The MVP can run as a standalone frontend before the API is started.
       }
@@ -64,6 +79,15 @@ function App() {
 
     loadInitialData();
   }, []);
+
+  async function refreshArticles() {
+    const articlesRes = await fetch('/api/articles');
+    if (!articlesRes.ok) return [];
+    const articleData = await articlesRes.json();
+    setArticles(articleData);
+    hydrateArticleState(articleData);
+    return articleData;
+  }
 
   function hydrateArticleState(nextArticles) {
     const nextComments = {};
@@ -175,6 +199,91 @@ function App() {
     }));
   }
 
+  function updateArticleForm(field, value) {
+    setArticleForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function resetArticleForm() {
+    setArticleForm(createEmptyArticleForm());
+    setEditingArticleId(null);
+    setAdminMessage('');
+  }
+
+  function startEditingArticle(article) {
+    setActiveView('admin');
+    setEditingArticleId(article.id);
+    setAdminMessage(`正在编辑：${article.title}`);
+    setArticleForm({
+      title: article.title,
+      summary: article.summary,
+      content: article.content,
+      tags: article.tags.join(', '),
+      date: article.date,
+      readTime: article.readTime
+    });
+  }
+
+  async function submitArticleForm(event) {
+    event.preventDefault();
+    setIsSavingArticle(true);
+    setAdminMessage('');
+
+    const payload = {
+      title: articleForm.title,
+      summary: articleForm.summary,
+      content: articleForm.content,
+      tags: articleForm.tags
+        .split(/[,，]/)
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      date: articleForm.date,
+      readTime: articleForm.readTime
+    };
+
+    try {
+      const response = await fetch(editingArticleId ? `/api/admin/articles/${editingArticleId}` : '/api/admin/articles', {
+        method: editingArticleId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        setAdminMessage(error.detail || '保存失败');
+        return;
+      }
+
+      await refreshArticles();
+      setAdminMessage(editingArticleId ? '文章已更新' : '文章已发布');
+      setArticleForm(createEmptyArticleForm());
+      setEditingArticleId(null);
+    } catch {
+      setAdminMessage('后端服务不可用，保存失败');
+    } finally {
+      setIsSavingArticle(false);
+    }
+  }
+
+  async function deleteArticle(article) {
+    if (!window.confirm(`确定删除《${article.title}》吗？`)) return;
+
+    try {
+      const response = await fetch(`/api/admin/articles/${article.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        setAdminMessage('删除失败');
+        return;
+      }
+
+      if (editingArticleId === article.id) {
+        resetArticleForm();
+      }
+      await refreshArticles();
+      setAdminMessage(`已删除：${article.title}`);
+    } catch {
+      setAdminMessage('后端服务不可用，删除失败');
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="博客导航">
@@ -250,6 +359,21 @@ function App() {
         {activeView === 'ai' && <AiWorkspace news={aiNews} articles={articles} />}
 
         {activeView === 'game' && <GameWorkspace />}
+
+        {activeView === 'admin' && (
+          <AdminWorkspace
+            articles={articles}
+            articleForm={articleForm}
+            updateArticleForm={updateArticleForm}
+            editingArticleId={editingArticleId}
+            isSavingArticle={isSavingArticle}
+            adminMessage={adminMessage}
+            submitArticleForm={submitArticleForm}
+            resetArticleForm={resetArticleForm}
+            startEditingArticle={startEditingArticle}
+            deleteArticle={deleteArticle}
+          />
+        )}
       </main>
     </div>
   );
@@ -487,6 +611,147 @@ function GameWorkspace() {
             allow="fullscreen; gamepad; autoplay"
           />
         </div>
+      </div>
+    </section>
+  );
+}
+
+function AdminWorkspace({
+  articles,
+  articleForm,
+  updateArticleForm,
+  editingArticleId,
+  isSavingArticle,
+  adminMessage,
+  submitArticleForm,
+  resetArticleForm,
+  startEditingArticle,
+  deleteArticle
+}) {
+  return (
+    <section className="workspace">
+      <div className="section-heading">
+        <p className="eyebrow">管理后台</p>
+        <h1>文章发布、编辑和删除</h1>
+      </div>
+
+      <div className="admin-layout">
+        <form className="admin-panel admin-form" onSubmit={submitArticleForm}>
+          <div className="admin-panel-heading">
+            <h2>{editingArticleId ? '编辑文章' : '发布文章'}</h2>
+            {editingArticleId && (
+              <button className="ghost-button" type="button" onClick={resetArticleForm}>
+                <X size={17} />
+                <span>取消编辑</span>
+              </button>
+            )}
+          </div>
+
+          <label>
+            <span>标题</span>
+            <input
+              value={articleForm.title}
+              onChange={(event) => updateArticleForm('title', event.target.value)}
+              placeholder="输入文章标题"
+              required
+            />
+          </label>
+
+          <label>
+            <span>摘要</span>
+            <textarea
+              value={articleForm.summary}
+              onChange={(event) => updateArticleForm('summary', event.target.value)}
+              placeholder="用于文章列表展示的短摘要"
+              rows={3}
+              required
+            />
+          </label>
+
+          <label>
+            <span>正文</span>
+            <textarea
+              value={articleForm.content}
+              onChange={(event) => updateArticleForm('content', event.target.value)}
+              placeholder="先支持纯文本/Markdown 内容，后续再加预览"
+              rows={10}
+              required
+            />
+          </label>
+
+          <div className="admin-form-grid">
+            <label>
+              <span>标签</span>
+              <input
+                value={articleForm.tags}
+                onChange={(event) => updateArticleForm('tags', event.target.value)}
+                placeholder="React, FastAPI, 学习"
+              />
+            </label>
+            <label>
+              <span>日期</span>
+              <input
+                type="date"
+                value={articleForm.date}
+                onChange={(event) => updateArticleForm('date', event.target.value)}
+              />
+            </label>
+            <label>
+              <span>阅读时长</span>
+              <input
+                value={articleForm.readTime}
+                onChange={(event) => updateArticleForm('readTime', event.target.value)}
+                placeholder="3 min"
+              />
+            </label>
+          </div>
+
+          <div className="admin-actions">
+            <button className="primary-action" type="submit" disabled={isSavingArticle}>
+              {editingArticleId ? <Save size={17} /> : <PlusCircle size={17} />}
+              <span>{isSavingArticle ? '保存中' : editingArticleId ? '保存修改' : '发布文章'}</span>
+            </button>
+            <button className="ghost-button" type="button" onClick={resetArticleForm}>
+              <X size={17} />
+              <span>清空</span>
+            </button>
+          </div>
+
+          {adminMessage && <p className="admin-message">{adminMessage}</p>}
+        </form>
+
+        <section className="admin-panel article-manager">
+          <div className="admin-panel-heading">
+            <h2>已有文章</h2>
+            <span>{articles.length} 篇</span>
+          </div>
+
+          <div className="manager-list">
+            {articles.map((article) => (
+              <article className="manager-row" key={article.id}>
+                <div>
+                  <h3>{article.title}</h3>
+                  <p>{article.summary}</p>
+                  <div className="tag-row">
+                    {article.tags.map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="manager-actions">
+                  <button type="button" onClick={() => startEditingArticle(article)}>
+                    <PencilLine size={17} />
+                    <span>编辑</span>
+                  </button>
+                  <button className="danger-button" type="button" onClick={() => deleteArticle(article)}>
+                    <Trash2 size={17} />
+                    <span>删除</span>
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     </section>
   );

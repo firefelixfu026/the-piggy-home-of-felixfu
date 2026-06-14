@@ -12,6 +12,7 @@ __pycache__/
 venv/
 *.log
 logs/
+.external/
 教学项目：从0到1做实用的个人博客 - Feishu Docs.pdf
 .DS_Store
 Thumbs.db

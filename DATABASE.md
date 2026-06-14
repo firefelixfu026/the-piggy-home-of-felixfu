@@ -144,6 +144,29 @@ POST /api/articles/{article_id}/reaction
 
 `active=true` 表示增加计数，`active=false` 表示取消并减少计数，最低不会小于 0。
 
+管理后台接口：
+
+```http
+POST /api/admin/articles
+PUT /api/admin/articles/{article_id}
+DELETE /api/admin/articles/{article_id}
+```
+
+创建和编辑文章的请求体：
+
+```json
+{
+  "title": "文章标题",
+  "summary": "文章摘要",
+  "content": "文章正文",
+  "tags": ["React", "FastAPI"],
+  "date": "2026-06-14",
+  "readTime": "3 min"
+}
+```
+
+当前管理接口尚未加登录鉴权，后续 v0.5.0 会增加管理员登录和 JWT 保护。
+
 ## 7. 验证命令
 
 启动数据库和后端后，执行：
@@ -162,4 +185,3 @@ Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/articles?q=AI' -UseBasicParsin
 ## 8. 后续改进
 
 当前 v0.3.0 使用 `Base.metadata.create_all()` 自动建表。后续进入多人协作或线上部署前，应加入 Alembic，使用正式数据库迁移管理表结构变化。
-

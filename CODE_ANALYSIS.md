@@ -1,5 +1,33 @@
 # 代码分析文档
 
+## v0.4.0
+
+### 管理后台接口
+
+- `backend/app/main.py`：新增 `ArticleIn` 请求模型。
+- `POST /api/admin/articles`：根据标题、摘要、正文、标签、日期和阅读时长创建文章，并初始化点赞、收藏、点踩计数。
+- `PUT /api/admin/articles/{article_id}`：更新文章内容和标签。
+- `DELETE /api/admin/articles/{article_id}`：删除文章，关联评论和互动计数随文章删除。
+- `_generate_article_id`：根据标题生成文章 ID；中文标题无法生成英文 slug 时使用 `article-YYYYMMDD` 并自动处理重复。
+
+### 前端管理页
+
+- `frontend/src/App.jsx`：新增导航项“管理”和 `AdminWorkspace` 组件。
+- 管理表单支持文章标题、摘要、正文、标签、日期、阅读时长。
+- 已有文章列表支持编辑和删除；保存后调用 `/api/articles` 重新同步文章、评论和互动计数。
+- `frontend/src/styles.css`：新增管理后台表单、按钮、文章管理列表和响应式布局样式。
+
+### 文档整理
+
+- `.gitignore`：新增 `.external/`，避免把外部小游戏仓库误提交到博客仓库。
+- `docs/archive/DOCKER_DESKTOP_SETUP.md`、`docs/archive/GITHUB_PUSH_TROUBLESHOOTING.md`、`docs/archive/个人博客搭建流程.md`：归档阶段性文档。
+- `README.md`、`NEXT_STEPS.md`：更新当前状态和下一步计划。
+
+### 小游戏仓库
+
+- 外部仓库 `card-war-made-by-class-3` 的 `css/style.css` 已新增 `#game-screen` 纵向滚动能力。
+- 提交号：`9c63c50 fix: allow scrolling in game screen`。
+
 ## v0.3.0
 
 ### PostgreSQL 与 Docker

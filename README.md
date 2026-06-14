@@ -6,7 +6,7 @@
 
 - 前端：React + Vite
 - 后端：FastAPI
-- 数据库：PostgreSQL，MVP 阶段暂未接入
+- 数据库：PostgreSQL
 - 自动化：GitHub Actions，后续接入
 - 部署：云服务器 + Docker + Nginx，后续接入
 
@@ -20,8 +20,7 @@
 ├── 需求.md                # 系统化需求说明
 ├── NEXT_STEPS.md          # 下一步开发计划
 ├── DATABASE.md            # 数据库和持久化说明
-├── DOCKER_DESKTOP_SETUP.md # Docker Desktop 安装与验证
-├── GITHUB_PUSH_TROUBLESHOOTING.md # GitHub 推送排查
+├── docs/archive/          # 已归档的阶段性文档
 ├── CHANGELOG.md           # 版本日志
 ├── CODE_ANALYSIS.md       # 代码分析文档
 └── README.md              # 项目说明
@@ -65,14 +64,14 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ## 已集成模块
 
 - 决斗小游戏：博客内通过 iframe 嵌入 `https://firefelixfu026.github.io/card-war-made-by-class-3/`，同时保留新窗口打开和源码仓库入口。
+- 管理后台：导航栏“管理”页支持发布、编辑、删除文章。
+- 数据持久化：文章、评论、点赞、收藏、点踩写入 PostgreSQL。
 
 ## 下一步
 
-v0.3.0 已完成 PostgreSQL 数据持久化。下一步建议推进 v0.4.0 文章管理后台，支持管理员发布、编辑、删除文章。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+v0.4.0 已完成文章管理后台。下一步建议推进 v0.5.0 登录鉴权，给管理后台加管理员保护。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
 
-开始 v0.3.0 前，需要先完成 Docker Desktop 安装与验证，步骤见 [DOCKER_DESKTOP_SETUP.md](./DOCKER_DESKTOP_SETUP.md)。
-
-当前 Git for Windows 推送 GitHub 仍有网络问题，排查与替代方案见 [GITHUB_PUSH_TROUBLESHOOTING.md](./GITHUB_PUSH_TROUBLESHOOTING.md)。
+Docker 安装和 GitHub 推送排查文档已归档到 `docs/archive/`。
 
 ## GitHub 连接
 

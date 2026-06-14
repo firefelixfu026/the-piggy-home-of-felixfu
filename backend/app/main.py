@@ -1,4 +1,7 @@
+import re
+from datetime import datetime
 from typing import Literal
+from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,11 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import SessionLocal, get_db, init_db
-from app.models import Article, Comment, ReactionCounter
+from app.models import Article, Comment, ReactionCounter, Tag
 from app.seed import REACTION_TYPES, seed_database
 
 
-app = FastAPI(title="FelixFu Blog API", version="0.3.0")
+app = FastAPI(title="FelixFu Blog API", version="0.4.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,7 +33,7 @@ PROFILE = {
     "interests": ["长跑", "唱歌", "游戏"],
     "summary": "这里会逐步沉淀学习笔记、技术文章、个人项目、AI 自动化内容和小游戏实验。MVP 阶段先完成可展示结构，后续接入真实登录、数据库和云端部署。",
     "metrics": [
-        {"label": "MVP 状态", "value": "v0.3"},
+        {"label": "MVP 状态", "value": "v0.4"},
         {"label": "文章方向", "value": "技术/学习"},
         {"label": "扩展模块", "value": "AI + 游戏"},
     ],
@@ -60,6 +63,15 @@ class ReactionIn(BaseModel):
     active: bool = True
 
 
+class ArticleIn(BaseModel):
+    title: str
+    summary: str
+    content: str
+    tags: list[str] = []
+    date: str | None = None
+    readTime: str = "3 min"
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
@@ -70,7 +82,7 @@ def on_startup() -> None:
 @app.get("/api/health")
 def health(db: Session = Depends(get_db)) -> dict[str, str | int]:
     article_count = len(db.scalars(select(Article.id)).all())
-    return {"status": "ok", "version": "0.3.0", "articles": article_count}
+    return {"status": "ok", "version": "0.4.0", "articles": article_count}
 
 
 @app.get("/api/profile")
@@ -136,6 +148,51 @@ def create_reaction(article_id: str, reaction: ReactionIn, db: Session = Depends
     db.refresh(article)
     article = _get_article_or_404(db, article_id)
     return {"articleId": article_id, "reactions": _reaction_counts(article)}
+
+
+@app.post("/api/admin/articles")
+def create_admin_article(payload: ArticleIn, db: Session = Depends(get_db)) -> dict:
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Article title is required")
+
+    article = Article(
+        id=_generate_article_id(db, title),
+        title=title,
+        summary=_required_text(payload.summary, "Article summary is required"),
+        content=_required_text(payload.content, "Article content is required"),
+        date=(payload.date or datetime.utcnow().date().isoformat()).strip(),
+        read_time=(payload.readTime or "3 min").strip(),
+    )
+    article.tags = [_get_or_create_tag(db, tag_name) for tag_name in _clean_tags(payload.tags)]
+    article.reactions = [
+        ReactionCounter(reaction_type=reaction_type, count=0)
+        for reaction_type in REACTION_TYPES
+    ]
+    db.add(article)
+    db.commit()
+    return _article_to_dict(_get_article_or_404(db, article.id))
+
+
+@app.put("/api/admin/articles/{article_id}")
+def update_admin_article(article_id: str, payload: ArticleIn, db: Session = Depends(get_db)) -> dict:
+    article = _get_article_or_404(db, article_id)
+    article.title = _required_text(payload.title, "Article title is required")
+    article.summary = _required_text(payload.summary, "Article summary is required")
+    article.content = _required_text(payload.content, "Article content is required")
+    article.date = (payload.date or article.date).strip()
+    article.read_time = (payload.readTime or article.read_time).strip()
+    article.tags = [_get_or_create_tag(db, tag_name) for tag_name in _clean_tags(payload.tags)]
+    db.commit()
+    return _article_to_dict(_get_article_or_404(db, article.id))
+
+
+@app.delete("/api/admin/articles/{article_id}")
+def delete_admin_article(article_id: str, db: Session = Depends(get_db)) -> dict[str, str]:
+    article = _get_article_or_404(db, article_id)
+    db.delete(article)
+    db.commit()
+    return {"status": "deleted", "articleId": article_id}
 
 
 @app.get("/api/ai/news")
@@ -226,3 +283,42 @@ def _get_or_create_reaction_counter(db: Session, article_id: str, reaction_type:
     db.flush()
     return counter
 
+
+def _get_or_create_tag(db: Session, name: str) -> Tag:
+    tag = db.scalar(select(Tag).where(Tag.name == name))
+    if tag:
+        return tag
+
+    tag = Tag(name=name)
+    db.add(tag)
+    db.flush()
+    return tag
+
+
+def _required_text(value: str, message: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail=message)
+    return cleaned
+
+
+def _clean_tags(tags: list[str]) -> list[str]:
+    seen: set[str] = set()
+    cleaned_tags: list[str] = []
+    for tag in tags:
+        cleaned = tag.strip()
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            cleaned_tags.append(cleaned)
+    return cleaned_tags
+
+
+def _generate_article_id(db: Session, title: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    if not slug:
+        slug = f"article-{datetime.utcnow().strftime('%Y%m%d')}"
+
+    candidate = slug
+    while db.get(Article, candidate):
+        candidate = f"{slug}-{uuid4().hex[:6]}"
+    return candidate
