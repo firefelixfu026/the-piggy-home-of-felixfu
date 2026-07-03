@@ -349,3 +349,30 @@ df -h
 - 最近有数据库备份。
 - HTTPS 续期测试通过。
 - 磁盘空间充足。
+
+## 15. 端口安全状态
+
+当前 `docker-compose.yml` 已把容器端口绑定到服务器本机：
+
+```text
+127.0.0.1:5432:5432  PostgreSQL
+127.0.0.1:8000:8000  FastAPI backend
+127.0.0.1:8080:80    frontend Nginx container
+```
+
+这样公网只能访问服务器 Nginx 暴露的 `80` 和 `443`，不能直接访问 PostgreSQL、后端调试端口或前端容器端口。
+
+服务器更新该配置后执行：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+docker compose up -d --force-recreate postgres backend frontend
+docker compose ps
+```
+
+外部访问入口仍然是：
+
+```text
+https://www.felixfu.xyz
+```

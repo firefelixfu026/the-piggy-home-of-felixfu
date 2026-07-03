@@ -323,3 +323,33 @@ docker compose ps
 ```
 
 如果以上都通过，下一阶段可以做 GitHub Actions 自动部署。
+
+## 18. 备份、证书续期和端口安全已验证
+
+已验证：
+
+```text
+数据库备份：felix_blog_20260704_023709.sql.gz 已生成
+HTTPS 续期：sudo certbot renew --dry-run 成功
+容器状态：backend、frontend、postgres 正常运行
+```
+
+安全收紧：
+
+```text
+127.0.0.1:5432:5432  PostgreSQL 只允许服务器本机访问
+127.0.0.1:8000:8000  FastAPI 后端只允许服务器本机访问
+127.0.0.1:8080:80    前端容器只允许服务器本机访问，由 Nginx 对外代理
+```
+
+下一步在服务器执行：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+docker compose up -d --force-recreate postgres backend frontend
+docker compose ps
+curl -I https://www.felixfu.xyz
+```
+
+完成后继续推进 GitHub Actions 自动部署。

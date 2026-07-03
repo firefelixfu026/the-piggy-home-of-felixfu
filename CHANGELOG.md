@@ -1,5 +1,12 @@
 ﻿# 版本日志
 
+## v1.0.2 - 备份验证和端口安全收紧
+
+- 线上数据库备份已验证成功，生成 `felix_blog_20260704_023709.sql.gz`。
+- HTTPS 证书自动续期 dry-run 已验证成功。
+- `docker compose ps` 显示 backend、frontend、postgres 均正常运行。
+- `docker-compose.yml` 的 `5432`、`8000`、`8080` 改为只绑定 `127.0.0.1`，避免公网绕过 Nginx 直连数据库、后端或前端容器。
+- 已执行 `docker compose config` 验证配置合法。
 ## v1.0.1 - 服务器日常运维文档
 
 - 新增 `SERVER_OPERATIONS.md`，记录 SSH 登录、服务状态、日志、更新、重启、Nginx、HTTPS、备份、磁盘检查和常见故障排查。
@@ -170,6 +177,7 @@
 - 实现个人主页、文章列表、搜索、互动按钮、AI 模块和小游戏入口的前端雏形。
 - 增加 README 和代码分析文档。
 - 暂未接入 PostgreSQL、GitHub OAuth、GitHub Actions 和云服务器部署。
+
 
 
 
