@@ -1,5 +1,11 @@
 ﻿# 版本日志
 
+## v1.1.0 - GitHub Actions 自动部署
+
+- 新增 `.github/workflows/deploy.yml`，在 CI 成功后自动 SSH 到阿里云服务器执行部署。
+- 新增 `scripts/deploy-production.sh`，统一服务器手动部署和 Actions 自动部署流程。
+- 新增 `GITHUB_ACTIONS_DEPLOYMENT.md`，记录 SSH key、GitHub Secrets、手动触发和故障回退说明。
+- 更新 `README.md` 和 `NEXT_STEPS.md`，补充自动部署入口和下一步配置清单。
 ## v1.0.2 - 备份验证和端口安全收紧
 
 - 线上数据库备份已验证成功，生成 `felix_blog_20260704_023709.sql.gz`。
@@ -177,6 +183,7 @@
 - 实现个人主页、文章列表、搜索、互动按钮、AI 模块和小游戏入口的前端雏形。
 - 增加 README 和代码分析文档。
 - 暂未接入 PostgreSQL、GitHub OAuth、GitHub Actions 和云服务器部署。
+
 
 
 

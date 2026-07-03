@@ -353,3 +353,31 @@ curl -I https://www.felixfu.xyz
 ```
 
 完成后继续推进 GitHub Actions 自动部署。
+
+## 19. GitHub Actions 自动部署已补充
+
+已完成：
+
+- 新增 `.github/workflows/deploy.yml`。
+- 新增 `scripts/deploy-production.sh`。
+- 新增 `GITHUB_ACTIONS_DEPLOYMENT.md`。
+
+还需要在 GitHub 仓库配置 Secrets：
+
+```text
+DEPLOY_HOST=47.242.176.227
+DEPLOY_USER=admin
+DEPLOY_PORT=22
+DEPLOY_PATH=/opt/felixfu-blog
+DEPLOY_SSH_KEY=部署私钥内容
+```
+
+配置完成后，到 GitHub Actions 页面手动运行一次 `Deploy` workflow。成功后，后续每次 push 到 `main`，CI 通过后会自动部署到服务器。
+
+下一步建议：
+
+1. 生成部署 SSH key。
+2. 把 public key 加到服务器 `~/.ssh/authorized_keys`。
+3. 把 private key 加到 GitHub Secrets。
+4. 手动触发一次 Deploy workflow 验证。
+5. 验证成功后进入 v1.2.0：增强测试覆盖和内容功能。
