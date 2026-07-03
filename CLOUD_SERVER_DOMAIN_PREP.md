@@ -1,4 +1,72 @@
-# 云服务器与域名购买准备指南
+﻿# 云服务器与域名购买准备指南
+
+## 0. 当前决定：优先使用阿里云
+
+当前部署路线已经确定为：
+
+```text
+阿里云服务器 + 阿里云域名 + 阿里云 DNS + 后续按需 ICP 备案
+```
+
+推荐先买阿里云服务器和域名放在同一个阿里云账号下管理。这样域名实名认证、DNS 解析、备案接入、安全组和后续续费都会更集中，操作成本最低。
+
+### 推荐购买方案
+
+如果想尽快上线，优先考虑：
+
+```text
+阿里云轻量应用服务器或 ECS
+地域：中国香港，适合先快速上线、暂不备案
+系统：Ubuntu 22.04 LTS 或 Ubuntu 24.04 LTS
+配置：2 vCPU / 2 GB 内存 / 40 GB 磁盘起步
+带宽：3-5 Mbps
+域名：.com，建议也在阿里云购买
+```
+
+如果希望主要服务中国大陆访问者，并愿意备案，选择：
+
+```text
+阿里云 ECS 或轻量应用服务器
+地域：杭州、上海、北京、深圳等大陆地域
+系统：Ubuntu 22.04 LTS 或 Ubuntu 24.04 LTS
+配置：2 vCPU / 2-4 GB 内存 / 40-80 GB 磁盘
+带宽：3-5 Mbps
+域名：在阿里云购买 .com 或 .cn
+备案：走阿里云 ICP 备案流程
+```
+
+### 本项目建议
+
+如果你现在觉得流程麻烦，建议第一阶段选：
+
+```text
+阿里云中国香港轻量应用服务器 + 阿里云 .com 域名
+```
+
+这样可以先不走 ICP 备案，把博客部署跑通。等内容稳定、确实需要大陆访问体验时，再迁移到阿里云大陆地域并补 ICP 备案。
+
+### 阿里云控制台需要配置
+
+安全组或防火墙只开放：
+
+```text
+TCP 22   SSH
+TCP 80   HTTP
+TCP 443  HTTPS
+```
+
+不要开放：
+
+```text
+TCP 5432 PostgreSQL
+TCP 8000 FastAPI 直连端口
+```
+
+官方参考：
+
+- 阿里云 ICP 备案文档：<https://help.aliyun.com/zh/icp-filing/>
+- 阿里云帮助中心：<https://help.aliyun.com/>
+已购服务器公网 IP：47.242.176.227。域名 `www.felixfu.xyz` 的 A 记录已显示解析正常，下一步配置 HTTPS 和 GitHub OAuth 正式回调。
 
 本文档用于准备把当前博客从本地 Docker Compose 部署到云服务器，并购买自有域名。
 
@@ -426,3 +494,23 @@ GitHub 登录名:
 - 腾讯云 CVM 创建实例文档：<https://cloud.tencent.com/document/product/213/4855>
 - GitHub Pages 自定义域名文档：<https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/about-custom-domains-and-github-pages>
 - Certbot Nginx HTTPS 文档：<https://certbot.eff.org/instructions?ws=nginx&os=ubuntufocal>
+
+## 11. 部署执行入口
+
+本文档主要解决“买什么服务器、买什么域名、要不要备案、DNS 怎么规划”的问题。
+
+真正开始部署时，请按 [CLOUD_SERVER_DEPLOYMENT.md](./CLOUD_SERVER_DEPLOYMENT.md) 执行，核心步骤是：
+
+1. SSH 登录服务器。
+2. 安装 Docker、Docker Compose、Git 和 Nginx。
+3. 拉取 GitHub 仓库代码。
+4. 配置线上 `.env`。
+5. 执行 `docker compose up -d --build`。
+6. 配置 Nginx 反向代理。
+7. 配置 DNS 和 HTTPS。
+8. 更新 GitHub OAuth 正式回调地址。
+
+v0.9.0 完成标准见 [CLOUD_SERVER_DEPLOYMENT.md](./CLOUD_SERVER_DEPLOYMENT.md) 的最后一节。
+
+
+

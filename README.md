@@ -1,4 +1,4 @@
-# FelixFu 个人博客
+﻿# FelixFu 个人博客
 
 [![CI](https://github.com/firefelixfu026/the-piggy-home-of-felixfu/actions/workflows/ci.yml/badge.svg)](https://github.com/firefelixfu026/the-piggy-home-of-felixfu/actions/workflows/ci.yml)
 
@@ -26,17 +26,35 @@
 ├── DOCKER_COMPOSE.md      # Docker Compose 一键启动说明
 ├── GITHUB_OAUTH_APP_SETUP.md # GitHub OAuth App 创建指南
 ├── CLOUD_SERVER_DOMAIN_PREP.md # 云服务器和域名购买准备指南
+├── CLOUD_SERVER_DEPLOYMENT.md # 云服务器部署执行指南
 ├── docs/archive/          # 已归档的阶段性文档
 ├── CHANGELOG.md           # 版本日志
 ├── CODE_ANALYSIS.md       # 代码分析文档
 └── README.md              # 项目说明
 ```
 
+## 线上地址
+
+当前正式访问地址：
+
+```text
+https://www.felixfu.xyz
+```
+
+部署状态：
+
+- 阿里云中国香港 Ubuntu 22.04
+- Docker Compose 运行前端、后端和 PostgreSQL
+- Nginx 反向代理
+- Certbot / Let''s Encrypt HTTPS
+- GitHub OAuth 登录已成功
+
 ## 本地启动
 
-推荐优先使用 Docker Compose：
+推荐优先使用 Docker Compose，一条命令同时启动 PostgreSQL、FastAPI 后端和 React 前端静态站点。
 
 ```powershell
+cd E:\FelixFu\document\网站\FelixFu
 docker compose up -d --build
 ```
 
@@ -44,13 +62,21 @@ docker compose up -d --build
 
 - 前端：`http://127.0.0.1:8080`
 - 后端健康检查：`http://127.0.0.1:8000/api/health`
-- Docker 说明：见 [DOCKER_COMPOSE.md](./DOCKER_COMPOSE.md)
+- 前端代理健康检查：`http://127.0.0.1:8080/api/health`
 
 如果 PowerShell 找不到 `docker` 命令，可以先执行：
 
 ```powershell
 $env:Path = 'C:\Program Files\Docker\Docker\resources\bin;' + $env:Path
 ```
+
+如果需要 GitHub 登录，先复制 `.env.example` 为 `.env` 并填写 GitHub OAuth 信息：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+完整启动、停止、验证和常见问题见 [DOCKER_COMPOSE.md](./DOCKER_COMPOSE.md)。
 
 如果只想手动启动开发服务，可以使用下面的方式。
 
@@ -75,7 +101,7 @@ cd backend
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-访问地址：
+手动开发访问地址：
 
 - 前端：`http://127.0.0.1:5173`
 - 后端健康检查：`http://127.0.0.1:8000/api/health`
@@ -124,11 +150,27 @@ GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
 
 ## 下一步
 
-v0.8.0 已完成 GitHub Actions 自动测试。下一步建议准备云服务器部署、Nginx、域名和 HTTPS。详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
+v0.8.0 已完成 GitHub Actions 自动测试。v0.8.1 已补充本地启动说明和云服务器部署文档。
 
-云服务器和域名购买准备见 [CLOUD_SERVER_DOMAIN_PREP.md](./CLOUD_SERVER_DOMAIN_PREP.md)。
+下一步建议进入 v0.9.0：使用阿里云准备云服务器部署、Nginx、域名和 HTTPS。
 
-Docker 安装和 GitHub 推送排查文档已归档到 `docs/archive/`。
+当前云平台选择：阿里云。服务器已购买：中国香港 Ubuntu 22.04，公网 IP：`47.242.176.227`。正式域名已上线：`https://www.felixfu.xyz`。HTTPS 已配置，GitHub OAuth 登录已成功；公网 IP `http://47.242.176.227` 仍可作为服务器访问参考。
+
+执行顺序建议：
+
+1. 本地执行 `docker compose up -d --build`，确认 `http://127.0.0.1:8080` 可访问。
+2. 打开 GitHub 仓库的 Actions 页面，确认 CI 通过。
+3. 购买或准备云服务器和域名，购买前阅读 [CLOUD_SERVER_DOMAIN_PREP.md](./CLOUD_SERVER_DOMAIN_PREP.md)。
+4. 按 [CLOUD_SERVER_DEPLOYMENT.md](./CLOUD_SERVER_DEPLOYMENT.md) 执行服务器部署。
+5. 上线前重新生成 GitHub OAuth Client Secret，并更新正式回调地址。
+
+云服务器部署需要的信息：
+
+- 云服务器公网 IP、SSH 用户名和部署目录。
+- 域名和 DNS 管理平台，如果已有。
+- GitHub OAuth 的正式线上配置。
+
+详细计划见 [NEXT_STEPS.md](./NEXT_STEPS.md)。
 
 ## GitHub 连接
 
@@ -141,3 +183,9 @@ Docker 安装和 GitHub 推送排查文档已归档到 `docs/archive/`。
 
 - GitHub Actions 部署所需的服务器 SSH 信息。
 - 云服务器公网 IP、SSH 用户名、部署目录和域名信息。
+
+
+
+
+
+

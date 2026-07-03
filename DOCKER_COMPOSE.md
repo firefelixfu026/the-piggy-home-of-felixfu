@@ -1,4 +1,4 @@
-# Docker Compose 一键启动说明
+﻿# Docker Compose 一键启动说明
 
 当前项目已支持通过 Docker Compose 同时启动：
 
@@ -186,3 +186,32 @@ http://127.0.0.1:8000/api/auth/github/callback
 ```text
 http://127.0.0.1:8080
 ```
+
+## 8. 快速启动清单
+
+日常本地启动推荐按这个顺序执行：
+
+```powershell
+cd E:\FelixFu\document\网站\FelixFu
+docker compose up -d --build
+docker compose ps
+Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/health'
+```
+
+访问：
+
+```text
+http://127.0.0.1:8080
+```
+
+首次使用新的数据库时，进入“登录”页面选择“初始化管理员”，然后进入“管理”页面发布、编辑或删除文章。
+
+## 9. 和云服务器部署的关系
+
+本地和云服务器都会复用同一份 `docker-compose.yml`。区别是：
+
+- 本地直接访问 `http://127.0.0.1:8080`。
+- 云服务器上先让 Docker Compose 启动内部服务，再用服务器 Nginx 把公网 80/443 转发到 `127.0.0.1:8080`。
+- 线上不应把 PostgreSQL `5432` 和后端直连端口 `8000` 暴露给公网。
+
+完整云服务器部署步骤见 [CLOUD_SERVER_DEPLOYMENT.md](./CLOUD_SERVER_DEPLOYMENT.md)。

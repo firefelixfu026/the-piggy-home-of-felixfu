@@ -1,5 +1,66 @@
-# 版本日志
+﻿# 版本日志
 
+## v0.9.4 - 文章正文展示修复
+
+- 修复文章页只显示摘要、不显示正文的问题。
+- 前端文章卡片新增正文区域，渲染 `article.content`。
+- 正文区域保留换行并兼容纯文本和 Markdown 原文展示。
+- 已执行 `npm run build` 验证前端构建通过。
+## v0.9.3 - 正式域名 HTTPS 和 GitHub 登录成功
+
+- 正式站点 `https://www.felixfu.xyz` 已可访问。
+- HTTPS 已配置完成。
+- GitHub OAuth 登录已验证成功。
+- v0.9.0 云服务器部署目标基本完成，下一阶段进入上线后检查、内容发布、备份和自动化增强。
+- 更新 `README.md`、`NEXT_STEPS.md`、`CLOUD_SERVER_DEPLOYMENT.md` 和 `GITHUB_OAUTH_APP_SETUP.md`。
+## v0.9.2 - GitHub OAuth 环境变量排查
+
+- 记录 GitHub 登录失败原因：服务器 `.env` 中 `GITHUB_CLIENT_ID` 未配置。
+- 确认 GitHub OAuth App 的正式域名 URL 配置方向正确。
+- 更新 `CLOUD_SERVER_DEPLOYMENT.md`、`NEXT_STEPS.md` 和 `GITHUB_OAUTH_APP_SETUP.md`，补充线上 `.env` 配置和重启命令。
+## v0.9.1 - 域名解析正常，准备 HTTPS
+
+- 记录域名 `www.felixfu.xyz` 的 A 记录已显示解析正常。
+- 当前 HTTPS 仍未设置，下一步是在服务器配置 Nginx 正式域名和 Certbot 证书。
+- 更新 `README.md`、`NEXT_STEPS.md`、`CLOUD_SERVER_DOMAIN_PREP.md` 和 `CLOUD_SERVER_DEPLOYMENT.md`，同步域名阶段状态。
+## v0.9.0 - 阿里云公网 IP 部署成功
+
+- 阿里云中国香港服务器公网 IP `47.242.176.227` 已可访问博客。
+- Docker Compose 已在服务器启动前端、后端和 PostgreSQL。
+- Nginx 已完成 80 端口反向代理到前端容器。
+- 当前仍等待域名审批，后续需要配置 DNS、HTTPS 和 GitHub OAuth 正式回调。
+- 更新 `README.md`、`NEXT_STEPS.md` 和 `CLOUD_SERVER_DEPLOYMENT.md`，记录公网 IP 阶段部署成功。
+## v0.8.5 - Docker 环境验证通过
+
+- 记录阿里云服务器已完成 Docker 安装。
+- 记录版本：`Docker version 29.0.1`、`Docker Compose version v5.3.0`。
+- 下一步调整为：拉取 GitHub 仓库、配置线上 `.env`、启动 Docker Compose，并配置 Nginx 反向代理到公网 IP。
+## v0.8.4 - SSH 和防火墙状态确认
+
+- 记录阿里云服务器 SSH 用户名为 `admin`。
+- 记录服务器密码已设置，后续建议切换为 SSH 密钥。
+- 记录阿里云轻量服务器防火墙已开放 `22`、`80`、`443`。
+- 更新下一步为：在服务器中安装 Docker、拉取仓库并启动 Docker Compose。
+## v0.8.3 - 阿里云服务器信息记录
+
+- 记录已购买的阿里云中国香港服务器信息：Ubuntu 22.04、2 vCPU、2 GiB、40 GiB、公网 IP `47.242.176.227`。
+- 更新 `CLOUD_SERVER_DEPLOYMENT.md`，明确域名审批前先使用公网 IP 部署和验证。
+- 更新 `NEXT_STEPS.md`，把下一步调整为 SSH 连接服务器并部署 Docker Compose。
+- 更新 `README.md` 和 `CLOUD_SERVER_DOMAIN_PREP.md`，同步当前服务器和域名审批状态。
+## v0.8.2 - 阿里云部署路线确认
+
+- 明确 v0.9.0 云部署优先使用阿里云。
+- 更新 `CLOUD_SERVER_DOMAIN_PREP.md`，新增阿里云购买建议、地域选择、安全组端口和备案路线。
+- 更新 `CLOUD_SERVER_DEPLOYMENT.md`，新增阿里云购买、控制台、安全组、DNS 配置说明。
+- 更新 `NEXT_STEPS.md`，把下一阶段调整为 v0.9.0 阿里云服务器部署。
+- 更新 `README.md`，在下一步中明确阿里云优先路线。
+## v0.8.1 - 启动和云部署文档整理
+
+- 新增 `CLOUD_SERVER_DEPLOYMENT.md`，记录从服务器初始化到 Docker Compose、Nginx、DNS、HTTPS 和 GitHub OAuth 上线配置的完整流程。
+- 更新 `README.md`，补充本地 Docker Compose 快速启动入口和 v0.9.0 云部署路线。
+- 更新 `NEXT_STEPS.md`，明确当前阶段是 v0.8.1 文档整理版，下一步是 v0.9.0 云服务器部署。
+- 更新 `DOCKER_COMPOSE.md`，增加快速启动清单和云服务器部署关系说明。
+- 更新 `CLOUD_SERVER_DOMAIN_PREP.md`，增加部署执行入口并链接到云部署指南。
 ## v0.8.0 - GitHub Actions 自动测试
 
 - 新增 `.github/workflows/ci.yml`。
@@ -98,3 +159,13 @@
 - 实现个人主页、文章列表、搜索、互动按钮、AI 模块和小游戏入口的前端雏形。
 - 增加 README 和代码分析文档。
 - 暂未接入 PostgreSQL、GitHub OAuth、GitHub Actions 和云服务器部署。
+
+
+
+
+
+
+
+
+
+

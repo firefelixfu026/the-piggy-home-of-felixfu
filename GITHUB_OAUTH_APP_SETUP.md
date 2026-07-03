@@ -1,4 +1,4 @@
-# GitHub OAuth App 创建与本地配置指南
+﻿# GitHub OAuth App 创建与本地配置指南
 
 本文档用于给当前博客项目创建 GitHub OAuth App，并把 GitHub 登录接入本地开发环境。
 
@@ -208,3 +208,54 @@ GITHUB_OAUTH_CALLBACK_URL=https://example.com/api/auth/github/callback
 ```
 
 正式部署前还需要配置 Nginx 和 HTTPS，否则 GitHub OAuth 在线环境会不稳定，也不安全。
+
+## 线上域名配置
+
+当前正式站点：
+
+```text
+https://www.felixfu.xyz
+```
+
+GitHub OAuth App 应配置：
+
+```text
+Homepage URL: https://www.felixfu.xyz
+Authorization callback URL: https://www.felixfu.xyz/api/auth/github/callback
+```
+
+服务器 `/opt/felixfu-blog/.env` 应配置：
+
+```text
+FRONTEND_ORIGIN=https://www.felixfu.xyz
+GITHUB_CLIENT_ID=GitHub OAuth App 的 Client ID
+GITHUB_CLIENT_SECRET=GitHub OAuth App 的 Client Secret
+GITHUB_OAUTH_CALLBACK_URL=https://www.felixfu.xyz/api/auth/github/callback
+GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
+```
+
+如果登录页提示：
+
+```text
+GITHUB_CLIENT_ID is not configured
+```
+
+说明服务器 `.env` 中 `GITHUB_CLIENT_ID` 为空，填写后重启后端和前端容器。
+
+## 线上 GitHub 登录已验证成功
+
+当前正式配置：
+
+```text
+Homepage URL: https://www.felixfu.xyz
+Authorization callback URL: https://www.felixfu.xyz/api/auth/github/callback
+```
+
+服务器 `/opt/felixfu-blog/.env` 已补充 `GITHUB_CLIENT_ID`、`GITHUB_CLIENT_SECRET`、`GITHUB_OAUTH_CALLBACK_URL` 和 `GITHUB_ADMIN_LOGINS` 后，GitHub 登录已验证成功。
+
+如果后续重新生成 Client Secret，需要同步更新服务器 `.env`，然后执行：
+
+```bash
+cd /opt/felixfu-blog
+docker compose up -d --force-recreate backend frontend
+```

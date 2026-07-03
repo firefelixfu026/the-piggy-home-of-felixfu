@@ -662,7 +662,12 @@ function ArticleWorkspace({
               <span>{article.readTime}</span>
             </div>
             <h2>{article.title}</h2>
-            <p>{article.summary}</p>
+            <p className="article-summary">{article.summary}</p>
+            {article.content && (
+              <div className="article-content" aria-label={`${article.title} 正文`}>
+                {article.content}
+              </div>
+            )}
             <div className="tag-row">
               {article.tags.map((tag) => (
                 <span key={tag}>{tag}</span>

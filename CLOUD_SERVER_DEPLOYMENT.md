@@ -1,0 +1,570 @@
+﻿# 云服务器部署指南
+
+版本：v0.8.1
+更新时间：2026-07-03
+
+本文档用于把 FelixFu 个人博客从本地 Docker Compose 部署到云服务器，并接入 Nginx、域名和 HTTPS。
+
+当前项目已经完成：
+
+- React + Vite 前端
+- FastAPI 后端
+- PostgreSQL 数据持久化
+- 管理后台和登录鉴权
+- GitHub OAuth 登录
+- Docker Compose 一键启动
+- GitHub Actions CI 自动检查
+
+下一阶段目标是 v0.9.0：云服务器部署、域名解析、Nginx 反向代理和 HTTPS。
+
+## 1. 最终线上结构
+
+```text
+浏览器 -> HTTPS 443 -> 服务器 Nginx -> Docker frontend -> /api -> Docker backend -> PostgreSQL
+```
+
+线上不建议直接向公网开放：
+
+```text
+5432  PostgreSQL
+8000  FastAPI 后端直连端口
+```
+
+公网只需要开放：
+
+```text
+22   SSH
+80   HTTP
+443  HTTPS
+```
+
+## 2. 部署前需要准备
+
+你需要准备：
+
+```text
+云厂商:
+服务器地域:
+服务器公网 IP:
+操作系统: Ubuntu 22.04 LTS 或 Ubuntu 24.04 LTS
+SSH 用户名:
+SSH 登录方式: 密钥 / 密码
+部署目录: 例如 /opt/felixfu-blog
+域名: 如果已有
+DNS 管理平台: 如果已有
+```
+
+推荐购买方案见 [CLOUD_SERVER_DOMAIN_PREP.md](./CLOUD_SERVER_DOMAIN_PREP.md)。
+
+## 2.1 阿里云购买和控制台设置
+
+当前推荐使用阿里云作为第一版上线平台。
+
+### 推荐路线 A：快速上线
+
+```text
+产品：阿里云轻量应用服务器或 ECS
+地域：中国香港
+系统：Ubuntu 22.04 LTS 或 Ubuntu 24.04 LTS
+配置：2 vCPU / 2 GB / 40 GB 起步
+带宽：3-5 Mbps
+域名：阿里云购买 .com
+备案：第一阶段暂不备案
+```
+
+这条路线最适合先把博客部署出来，验证 Docker Compose、Nginx、HTTPS 和 GitHub OAuth。
+
+### 推荐路线 B：国内访问和长期运营
+
+```text
+产品：阿里云 ECS 或轻量应用服务器
+地域：杭州、上海、北京、深圳等大陆地域
+系统：Ubuntu 22.04 LTS 或 Ubuntu 24.04 LTS
+配置：2 vCPU / 2-4 GB / 40-80 GB
+域名：阿里云购买 .com 或 .cn
+备案：走阿里云 ICP 备案
+```
+
+这条路线适合后续正式面向大陆访问者。
+
+### 阿里云安全组
+
+在阿里云控制台的安全组或服务器防火墙里，只开放：
+
+```text
+22   SSH
+80   HTTP
+443  HTTPS
+```
+
+不要向公网开放：
+
+```text
+5432 PostgreSQL
+8000 FastAPI 后端直连端口
+```
+
+### 阿里云域名和 DNS
+
+建议域名也在阿里云购买。拿到服务器公网 IP 后，在阿里云 DNS 中添加：
+
+```text
+A  @    服务器公网 IP
+A  www  服务器公网 IP
+```
+
+如果后续要把旧学习笔记站点绑定到子域名，可以再添加：
+
+```text
+CNAME  notes  firefelixfu026.github.io
+```
+
+
+## 当前阿里云服务器信息
+
+更新时间：2026-07-03
+
+已购买并运行中的服务器：
+
+```text
+云厂商：阿里云
+地域：中国香港
+实例名称：Ubuntu-qfmm
+实例 ID：3a15a9ed86df4df4980800ff513dc1d4
+公网 IP：47.242.176.227
+私有 IP：172.17.43.118
+系统镜像：Ubuntu 22.04
+规格：2 vCPU / 2 GiB / ESSD 云盘 40 GiB
+到期时间：2026-08-03 23:59:59
+```
+
+域名已经购买，但还没审批通过。当前部署策略：
+
+```text
+第一步：先用公网 IP 47.242.176.227 部署并验证网站。
+第二步：域名审批通过后，把域名 DNS 解析到 47.242.176.227。
+第三步：配置 HTTPS 和 GitHub OAuth 正式回调地址。
+```
+
+当前还需要确认：
+
+```text
+SSH 用户名：admin
+SSH 登录方式：密码已设置，后续建议改为 SSH 密钥
+阿里云防火墙已开放 22、80、443
+```
+## 当前部署前置条件已完成
+
+```text
+SSH 用户名：admin
+SSH 登录方式：密码已设置
+防火墙端口：22、80、443 已开放
+部署入口：可先用阿里云网页“远程连接”执行命令
+```
+
+Docker 已安装并验证通过：
+
+```text
+Docker version 29.0.1, build 890efd1d
+Docker Compose version v5.3.0
+```
+
+现在可以开始拉取项目、配置 `.env` 并启动服务。
+
+## 3. 服务器初始化
+
+SSH 登录服务器后执行：
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg git nginx
+```
+
+安装 Docker 和 Docker Compose 插件：
+
+```bash
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER
+```
+
+退出 SSH 后重新登录，让 Docker 用户组生效。
+
+验证：
+
+```bash
+docker --version
+docker compose version
+```
+
+## 4. 拉取项目代码
+
+示例部署目录：
+
+```bash
+sudo mkdir -p /opt/felixfu-blog
+sudo chown -R $USER:$USER /opt/felixfu-blog
+cd /opt/felixfu-blog
+git clone https://github.com/firefelixfu026/the-piggy-home-of-felixfu.git .
+```
+
+如果目录已经有代码，后续更新可使用：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+```
+
+## 5. 配置线上环境变量
+
+复制环境变量示例：
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+线上建议配置：
+
+```text
+APP_ENV=production
+FRONTEND_ORIGIN=https://www.example.com
+AUTH_SECRET=换成足够长的随机字符串
+AUTH_TOKEN_TTL_SECONDS=604800
+GITHUB_CLIENT_ID=新的 GitHub OAuth Client ID
+GITHUB_CLIENT_SECRET=新的 GitHub OAuth Client Secret
+GITHUB_OAUTH_CALLBACK_URL=https://www.example.com/api/auth/github/callback
+GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
+GITHUB_ADMIN_EMAILS=
+```
+
+注意：
+
+- 正式上线前建议重新生成 GitHub OAuth Client Secret。
+- `.env` 不要提交到 GitHub。
+- `FRONTEND_ORIGIN` 和 `GITHUB_OAUTH_CALLBACK_URL` 要与正式域名一致。
+
+## 6. 启动 Docker Compose
+
+在服务器项目目录执行：
+
+```bash
+docker compose up -d --build
+```
+
+查看服务：
+
+```bash
+docker compose ps
+```
+
+期望：
+
+```text
+felixfu_blog_postgres    healthy
+felixfu_blog_backend     healthy
+felixfu_blog_frontend    Up
+```
+
+验证后端：
+
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
+验证前端容器：
+
+```bash
+curl http://127.0.0.1:8080
+```
+
+## 7. 配置 Nginx 反向代理
+
+假设正式域名是：
+
+```text
+example.com
+www.example.com
+```
+
+创建配置：
+
+```bash
+sudo nano /etc/nginx/sites-available/felixfu-blog
+```
+
+写入：
+
+```nginx
+server {
+    listen 80;
+    server_name example.com www.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+启用：
+
+```bash
+sudo ln -s /etc/nginx/sites-available/felixfu-blog /etc/nginx/sites-enabled/felixfu-blog
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+如果默认站点占用了 80，可以禁用默认站点：
+
+```bash
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## 8. 配置 DNS
+
+在域名 DNS 管理平台添加：
+
+```text
+类型: A
+主机记录: @
+记录值: 服务器公网 IP
+
+类型: A
+主机记录: www
+记录值: 服务器公网 IP
+```
+
+也可以让 `www` 使用 CNAME：
+
+```text
+类型: CNAME
+主机记录: www
+记录值: example.com
+```
+
+等待解析生效后访问：
+
+```text
+http://www.example.com
+```
+
+## 9. 配置 HTTPS
+
+安装 Certbot：
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+签发证书：
+
+```bash
+sudo certbot --nginx -d example.com -d www.example.com
+```
+
+验证自动续期：
+
+```bash
+sudo certbot renew --dry-run
+```
+
+成功后访问：
+
+```text
+https://www.example.com
+```
+
+## 10. 更新 GitHub OAuth
+
+到 GitHub OAuth App 页面修改：
+
+```text
+Homepage URL:
+https://www.example.com
+
+Authorization callback URL:
+https://www.example.com/api/auth/github/callback
+```
+
+服务器 `.env` 也要保持一致：
+
+```text
+FRONTEND_ORIGIN=https://www.example.com
+GITHUB_OAUTH_CALLBACK_URL=https://www.example.com/api/auth/github/callback
+```
+
+修改 `.env` 后重启后端和前端：
+
+```bash
+docker compose up -d --force-recreate backend frontend
+```
+
+## 11. 日常更新
+
+代码推送到 GitHub 后，服务器手动更新：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+docker compose up -d --build
+```
+
+查看日志：
+
+```bash
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f postgres
+```
+
+停止服务但保留数据库：
+
+```bash
+docker compose down
+```
+
+停止服务并删除数据库数据：
+
+```bash
+docker compose down -v
+```
+
+## 当前部署结果
+
+```text
+http://47.242.176.227 已可访问
+Docker Compose 已启动
+Nginx 已完成 80 端口反向代理
+域名 `www.felixfu.xyz` 的 A 记录已显示解析正常，HTTPS 尚未设置
+```
+
+公网 IP 阶段已经成功，域名 `www.felixfu.xyz` 已可进入 HTTPS 配置阶段。服务器 `.env`、Nginx `server_name`、HTTPS 证书和 GitHub OAuth 正式回调已完成。
+
+## 当前域名状态
+
+```text
+域名：www.felixfu.xyz
+解析类型：A 记录
+解析状态：正常
+HTTPS：已设置并可访问
+服务器公网 IP：47.242.176.227
+```
+
+域名阶段执行顺序：
+
+1. 服务器 `.env` 改为正式域名。
+2. Docker 后端和前端重建。
+3. Nginx `server_name` 改为 `www.felixfu.xyz`。
+4. 使用 Certbot 签发 HTTPS 证书。
+5. GitHub OAuth App 回调地址改为 `https://www.felixfu.xyz/api/auth/github/callback`。
+
+## GitHub OAuth 线上排查记录
+
+现象：
+
+```text
+GitHub 登录失败：GITHUB_CLIENT_ID is not configured
+```
+
+原因：
+
+```text
+GitHub OAuth App 的 Homepage URL 和 Authorization callback URL 已配置为正式域名，
+该问题当时由服务器 /opt/felixfu-blog/.env 中的 GITHUB_CLIENT_ID 为空导致；现在已补充环境变量并验证 GitHub OAuth 登录成功。
+```
+
+历史修复方式：
+
+1. 在 GitHub OAuth App 页面复制 Client ID。
+2. 生成或复制 Client Secret。
+3. SSH 进入服务器，编辑 `/opt/felixfu-blog/.env`。
+4. 填写：
+
+```text
+GITHUB_CLIENT_ID=GitHub OAuth App 的 Client ID
+GITHUB_CLIENT_SECRET=GitHub OAuth App 的 Client Secret
+GITHUB_OAUTH_CALLBACK_URL=https://www.felixfu.xyz/api/auth/github/callback
+GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
+FRONTEND_ORIGIN=https://www.felixfu.xyz
+```
+
+5. 重启后端和前端：
+
+```bash
+cd /opt/felixfu-blog
+docker compose up -d --force-recreate backend frontend
+```
+
+不要把 Client Secret 提交到 GitHub，也不要发到聊天里。
+
+## 正式域名 HTTPS 和 GitHub OAuth 已成功
+
+更新时间：2026-07-04
+
+```text
+正式地址：https://www.felixfu.xyz
+公网 IP：http://47.242.176.227
+HTTPS：已配置
+GitHub OAuth：已登录成功
+服务器：阿里云中国香港 Ubuntu 22.04
+部署方式：Docker Compose + Nginx + Certbot
+```
+
+当前 v0.9.0 云服务器部署目标已经基本完成。接下来进入上线后检查和功能增强阶段。
+
+## 上线后检查清单
+
+建议逐项确认：
+
+1. 首页可以通过 `https://www.felixfu.xyz` 打开。
+2. HTTP 会自动跳转到 HTTPS。
+3. GitHub 登录成功后能回到博客。
+4. 管理员账号可以进入“管理”页面。
+5. 可以发布一篇测试文章。
+6. 文章列表、评论、点赞、收藏、点踩能正常写入数据库。
+7. `docker compose ps` 中 `postgres`、`backend`、`frontend` 状态正常。
+8. Certbot 自动续期测试通过。
+
+续期测试命令：
+
+```bash
+sudo certbot renew --dry-run
+```
+
+## 12. v0.9.0 完成标准
+
+v0.9.0 可以认为完成，当以下项目都通过：
+
+- 服务器可以通过 SSH 登录。
+- Docker 和 Docker Compose 已安装。
+- 项目代码已拉取到服务器。
+- `.env` 已按正式域名配置。
+- `docker compose ps` 显示服务正常。
+- `http://服务器公网IP` 或域名可以访问博客。
+- `https://正式域名` 可以访问博客。
+- GitHub OAuth 登录回调正常。
+- 管理员可以登录后台并发布文章。
+
+
+
+
+
+
+
+
+
