@@ -1,0 +1,351 @@
+﻿# 服务器日常运维指南
+
+版本：v1.0.0
+更新时间：2026-07-04
+
+本文档记录 FelixFu 个人博客在阿里云服务器上的日常运维命令和故障排查入口。
+
+当前线上信息：
+
+```text
+正式地址：https://www.felixfu.xyz
+公网 IP：47.242.176.227
+SSH 用户：admin
+服务器：阿里云中国香港 Ubuntu 22.04
+项目目录：/opt/felixfu-blog
+部署方式：Docker Compose + Nginx + Certbot
+```
+
+## 1. SSH 登录
+
+本机 PowerShell：
+
+```powershell
+ssh admin@47.242.176.227
+```
+
+也可以继续使用阿里云控制台的“远程连接”。
+
+## 2. 进入项目目录
+
+```bash
+cd /opt/felixfu-blog
+```
+
+## 3. 查看服务状态
+
+```bash
+docker compose ps
+```
+
+正常情况下应看到：
+
+```text
+felixfu_blog_postgres    healthy
+felixfu_blog_backend     healthy
+felixfu_blog_frontend    Up
+```
+
+## 4. 查看日志
+
+后端日志：
+
+```bash
+cd /opt/felixfu-blog
+docker compose logs -f backend
+```
+
+前端日志：
+
+```bash
+docker compose logs -f frontend
+```
+
+数据库日志：
+
+```bash
+docker compose logs -f postgres
+```
+
+只看最近 100 行：
+
+```bash
+docker compose logs --tail=100 backend
+```
+
+## 5. 更新代码并重建
+
+当 GitHub 上有新提交后，在服务器执行：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+docker compose up -d --build
+```
+
+如果只改了前端：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+docker compose up -d --build frontend
+```
+
+如果只改了后端：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+docker compose up -d --build backend
+```
+
+## 6. 重启服务
+
+重启全部服务：
+
+```bash
+cd /opt/felixfu-blog
+docker compose restart
+```
+
+只重启后端：
+
+```bash
+docker compose restart backend
+```
+
+只重启前端：
+
+```bash
+docker compose restart frontend
+```
+
+## 7. 检查网站是否正常
+
+服务器内检查后端：
+
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
+服务器内检查前端：
+
+```bash
+curl -I http://127.0.0.1:8080
+```
+
+服务器内检查 Nginx 公网入口：
+
+```bash
+curl -I http://127.0.0.1
+```
+
+本机浏览器访问：
+
+```text
+https://www.felixfu.xyz
+```
+
+## 8. Nginx 操作
+
+检查配置：
+
+```bash
+sudo nginx -t
+```
+
+重载配置：
+
+```bash
+sudo systemctl reload nginx
+```
+
+重启 Nginx：
+
+```bash
+sudo systemctl restart nginx
+```
+
+查看 Nginx 状态：
+
+```bash
+sudo systemctl status nginx
+```
+
+站点配置文件：
+
+```text
+/etc/nginx/sites-available/felixfu-blog
+/etc/nginx/sites-enabled/felixfu-blog
+```
+
+## 9. HTTPS 证书
+
+查看证书：
+
+```bash
+sudo certbot certificates
+```
+
+测试自动续期：
+
+```bash
+sudo certbot renew --dry-run
+```
+
+如果测试成功，说明 Let's Encrypt 自动续期链路正常。
+
+## 10. 数据库备份
+
+手动备份：
+
+```bash
+cd /opt/felixfu-blog
+./scripts/backup-postgres.sh
+```
+
+查看备份：
+
+```bash
+ls -lh backups/postgres
+```
+
+完整说明见 [DATABASE_BACKUP.md](./DATABASE_BACKUP.md)。
+
+## 11. 检查磁盘和内存
+
+磁盘：
+
+```bash
+df -h
+```
+
+内存：
+
+```bash
+free -h
+```
+
+容器资源占用：
+
+```bash
+docker stats
+```
+
+如果磁盘接近满了，优先清理旧 Docker 构建缓存和旧备份。
+
+谨慎清理 Docker 缓存：
+
+```bash
+docker builder prune
+```
+
+执行前确认当前服务正常，且不要删除数据库 volume。
+
+## 12. 常见故障
+
+### 网站打不开
+
+检查：
+
+```bash
+cd /opt/felixfu-blog
+docker compose ps
+sudo nginx -t
+sudo systemctl status nginx
+```
+
+再看日志：
+
+```bash
+docker compose logs --tail=100 backend
+sudo tail -n 100 /var/log/nginx/error.log
+```
+
+### GitHub 登录失败
+
+检查服务器 `.env`：
+
+```bash
+cd /opt/felixfu-blog
+sed -n '/GITHUB_CLIENT_ID/p;/GITHUB_OAUTH_CALLBACK_URL/p;/GITHUB_ADMIN_LOGINS/p;/FRONTEND_ORIGIN/p' .env
+```
+
+不要把 `GITHUB_CLIENT_SECRET` 打印或发到聊天里。
+
+应确认：
+
+```text
+FRONTEND_ORIGIN=https://www.felixfu.xyz
+GITHUB_OAUTH_CALLBACK_URL=https://www.felixfu.xyz/api/auth/github/callback
+GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
+```
+
+GitHub OAuth App 中也应是：
+
+```text
+Homepage URL: https://www.felixfu.xyz
+Authorization callback URL: https://www.felixfu.xyz/api/auth/github/callback
+```
+
+### 发布文章失败
+
+先确认登录用户是管理员，然后检查后端日志：
+
+```bash
+cd /opt/felixfu-blog
+docker compose logs --tail=100 backend
+```
+
+同时检查浏览器是否使用了代理。代理可能影响域名访问或 API 请求。
+
+### 文章正文不显示
+
+该问题已在 v0.9.4 修复。服务器需要拉取最新代码并重建前端：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+docker compose up -d --build frontend
+```
+
+## 13. 危险命令提醒
+
+不要随便执行：
+
+```bash
+docker compose down -v
+```
+
+`-v` 会删除 PostgreSQL volume，可能导致文章、评论、用户数据丢失。
+
+如果只是停止服务，使用：
+
+```bash
+docker compose down
+```
+
+如果只是重启，使用：
+
+```bash
+docker compose restart
+```
+
+## 14. 推荐每周检查
+
+每周执行一次：
+
+```bash
+cd /opt/felixfu-blog
+docker compose ps
+ls -lh backups/postgres | tail
+sudo certbot renew --dry-run
+df -h
+```
+
+确认：
+
+- 三个容器状态正常。
+- 最近有数据库备份。
+- HTTPS 续期测试通过。
+- 磁盘空间充足。

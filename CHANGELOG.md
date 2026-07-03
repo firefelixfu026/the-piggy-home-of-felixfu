@@ -1,5 +1,16 @@
 ﻿# 版本日志
 
+## v1.0.1 - 服务器日常运维文档
+
+- 新增 `SERVER_OPERATIONS.md`，记录 SSH 登录、服务状态、日志、更新、重启、Nginx、HTTPS、备份、磁盘检查和常见故障排查。
+- 更新 `README.md`，增加上线后运维入口。
+- 更新 `NEXT_STEPS.md`，把后续重点推进到备份验证、运维检查和自动部署。
+## v1.0.0 - 数据库备份和恢复
+
+- 新增 `DATABASE_BACKUP.md`，记录线上 PostgreSQL 手动备份、恢复、下载备份和自动备份流程。
+- 新增 `scripts/backup-postgres.sh`，用于服务器上生成压缩数据库备份并清理旧备份。
+- 新增 `scripts/restore-postgres.sh`，用于从 `.sql.gz` 备份恢复数据库，并在恢复前自动做安全备份。
+- 更新 `.gitignore`，忽略本地生成的文档和代码备份目录。
 ## v0.9.4 - 文章正文展示修复
 
 - 修复文章页只显示摘要、不显示正文的问题。
@@ -159,6 +170,8 @@
 - 实现个人主页、文章列表、搜索、互动按钮、AI 模块和小游戏入口的前端雏形。
 - 增加 README 和代码分析文档。
 - 暂未接入 PostgreSQL、GitHub OAuth、GitHub Actions 和云服务器部署。
+
+
 
 
 

@@ -282,3 +282,44 @@ frontend/src/styles.css 增加 .article-content 样式，保留换行并兼容 M
 ```text
 npm run build 已通过。
 ```
+
+## 16. 数据库备份和恢复已补充
+
+已完成：
+
+- 新增 `DATABASE_BACKUP.md`。
+- 新增 `scripts/backup-postgres.sh`。
+- 新增 `scripts/restore-postgres.sh`。
+- `.gitignore` 已忽略本地备份目录。
+
+服务器下一步可执行：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+chmod +x scripts/backup-postgres.sh scripts/restore-postgres.sh
+./scripts/backup-postgres.sh
+```
+
+建议确认备份成功后，再配置每日自动备份 cron。
+
+## 17. 服务器日常运维文档已补充
+
+已完成：
+
+- 新增 `SERVER_OPERATIONS.md`。
+- README 已增加上线后运维入口。
+- 运维文档覆盖服务状态、日志、更新、重启、Nginx、HTTPS、备份、磁盘和故障排查。
+
+服务器建议立即执行：
+
+```bash
+cd /opt/felixfu-blog
+git pull
+chmod +x scripts/backup-postgres.sh scripts/restore-postgres.sh
+./scripts/backup-postgres.sh
+sudo certbot renew --dry-run
+docker compose ps
+```
+
+如果以上都通过，下一阶段可以做 GitHub Actions 自动部署。
