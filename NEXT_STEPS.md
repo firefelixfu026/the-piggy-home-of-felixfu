@@ -412,3 +412,26 @@ Configure SSH 已通过
 1. 推送本次修复到 GitHub。
 2. 回到 GitHub Actions 的 Deploy 页面重新运行 workflow。
 3. 如果通过，自动部署链路即完成：push main -> CI -> Deploy -> 服务器更新。
+## 21. 个人头像上线和自动部署验证
+
+已完成：
+
+```text
+frontend/public/avatar.jpg 已加入项目
+左侧栏品牌头像已替换为真实头像
+首页个人展示图已替换为真实头像
+npm run build 已通过
+```
+
+本次提交目的：
+
+```text
+验证 push 到 main 后，GitHub Actions 是否自动执行 CI，并在 CI 成功后自动 Deploy 到服务器。
+```
+
+上线后检查：
+
+1. 打开 `https://www.felixfu.xyz`。
+2. 刷新页面，必要时强制刷新浏览器缓存。
+3. 检查左侧栏头像和首页个人图片是否已经变为真实头像。
+4. 在 GitHub Actions 中确认最新一次 `CI` 和 `Deploy` 都是绿色通过。

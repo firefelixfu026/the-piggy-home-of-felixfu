@@ -435,7 +435,7 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar" aria-label="博客导航">
         <div className="brand">
-          <span className="brand-mark">FJ</span>
+          <img className="brand-mark" src="/avatar.jpg" alt="付江樊头像" />
           <div>
             <strong>{profile.name}</strong>
             <span>{profile.englishName}</span>
@@ -585,7 +585,7 @@ function Overview({ profile, articles }) {
             ))}
           </div>
         </div>
-        <img className="profile-image" src="/profile-cover.png" alt="付江樊个人博客封面" />
+        <img className="profile-image" src="/avatar.jpg" alt="付江樊头像" />
       </div>
 
       <div className="metric-grid">

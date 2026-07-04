@@ -1,5 +1,12 @@
 ﻿# 版本日志
 
+## v1.1.2 - 个人头像上线验证
+
+- 新增 `frontend/public/avatar.jpg`，作为网站个人头像资源。
+- 侧边栏品牌位从 `FJ` 文本标识改为真实头像图片。
+- 首页个人展示图同步改为头像，便于线上确认自动部署效果。
+- 已执行 `npm run build` 验证前端构建通过。
+- 本次提交用于验证 GitHub Actions 自动部署链路是否会在 push 后自动运行。
 ## v1.1.1 - 自动部署首次运行修复
 
 - 修复 Deploy workflow 首次运行时，服务器尚未拉取 `scripts/deploy-production.sh` 导致 `chmod` 找不到文件的问题。

@@ -49,14 +49,13 @@ button {
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 44px;
   height: 44px;
   border-radius: 8px;
-  color: #102033;
-  background: #f2c94c;
-  font-weight: 800;
+  object-fit: cover;
+  border: 1px solid rgba(248, 250, 252, 0.32);
+  background: #dce6ef;
 }
 
 .brand strong,
