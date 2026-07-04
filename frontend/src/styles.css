@@ -860,6 +860,30 @@ h3 {
   min-width: 0;
 }
 
+.comment-filter-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.comment-filter-row label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.comment-filter-row select {
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  color: #334155;
+  background: #ffffff;
+}
+
 .comment-row h3 {
   color: #334155;
   font-size: 15px;

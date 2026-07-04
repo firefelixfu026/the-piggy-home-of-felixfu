@@ -70,6 +70,8 @@ function App() {
   const [adminMessage, setAdminMessage] = useState('');
   const [adminComments, setAdminComments] = useState([]);
   const [adminCommentPage, setAdminCommentPage] = useState(0);
+  const [adminCommentArticleFilter, setAdminCommentArticleFilter] = useState('all');
+  const [adminCommentAuthorFilter, setAdminCommentAuthorFilter] = useState('all');
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [isSavingArticle, setIsSavingArticle] = useState(false);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
@@ -394,31 +396,23 @@ function App() {
           ...current,
           [articleId]: result.comments
         }));
-        setInteractionMessage('');
+        setInteractionMessage('评论发布成功');
         setCommentPages((current) => ({ ...current, [articleId]: Number.MAX_SAFE_INTEGER }));
         return;
       }
 
+      const result = await response.json().catch(() => ({}));
       if (response.status === 401 || response.status === 403) {
         showLoginRequired('评论');
         await refreshArticles();
+        return;
       }
+      setInteractionMessage(result.detail || '评论发布失败，请稍后再试');
       return;
     } catch {
-      // Fall through to local-only behavior for standalone frontend previews.
+      setInteractionMessage('后端服务不可用，评论发布失败');
+      setCommentDrafts((current) => ({ ...current, [articleId]: value }));
     }
-
-    setComments((current) => ({
-      ...current,
-      [articleId]: [
-        ...(current[articleId] || []),
-        {
-          id: `${articleId}-${Date.now()}`,
-          authorName: currentUser?.displayName || currentUser?.email || '我',
-          content: value
-        }
-      ]
-    }));
   }
 
   function updateArticleForm(field, value) {
@@ -526,7 +520,7 @@ function App() {
     }
   }
 
-  async function refreshAdminComments() {
+  async function refreshAdminComments({ resetPage = true } = {}) {
     if (!authToken) return;
 
     setIsLoadingAdminComments(true);
@@ -542,7 +536,9 @@ function App() {
       }
 
       setAdminComments(await response.json());
-      setAdminCommentPage(0);
+      if (resetPage) {
+        setAdminCommentPage(0);
+      }
     } catch {
       setAdminMessage('后端服务不可用，无法加载评论');
     } finally {
@@ -566,8 +562,13 @@ function App() {
         return;
       }
 
+      setAdminComments((current) => current.filter((item) => item.id !== comment.id));
+      setAdminCommentPage((currentPage) => {
+        const remainingCount = Math.max(0, adminComments.length - 1);
+        const maxPage = Math.max(0, Math.ceil(remainingCount / ADMIN_COMMENTS_PER_PAGE) - 1);
+        return Math.min(currentPage, maxPage);
+      });
       await refreshArticles();
-      await refreshAdminComments();
       setAdminMessage('评论已删除');
     } catch {
       setAdminMessage('后端服务不可用，评论删除失败');
@@ -698,6 +699,10 @@ function App() {
             adminComments={adminComments}
             adminCommentPage={adminCommentPage}
             setAdminCommentPage={setAdminCommentPage}
+            adminCommentArticleFilter={adminCommentArticleFilter}
+            setAdminCommentArticleFilter={setAdminCommentArticleFilter}
+            adminCommentAuthorFilter={adminCommentAuthorFilter}
+            setAdminCommentAuthorFilter={setAdminCommentAuthorFilter}
             isLoadingAdminComments={isLoadingAdminComments}
             refreshAdminComments={refreshAdminComments}
             deleteAdminComment={deleteAdminComment}
@@ -918,7 +923,9 @@ function ArticleWorkspace({
                   发布
                 </button>
               </div>
-              <div className="comment-limit">{draftLength} / {COMMENT_MAX_LENGTH}</div>
+              <div className="comment-limit">
+                {currentUser ? `将以 ${currentUser.displayName || currentUser.email} 身份评论` : '登录后才能评论'} · {draftLength} / {COMMENT_MAX_LENGTH}
+              </div>
             </div>
           </article>
           );
@@ -967,6 +974,18 @@ function paginateFixedSize(items, pageSize) {
   }
   return pages;
 }
+
+function uniqueCommentOptions(comments, primaryKey, fallbackKey) {
+  const options = new Set();
+  comments.forEach((comment) => {
+    const value = (comment[primaryKey] || (fallbackKey ? comment[fallbackKey] : '') || '').trim();
+    if (value) {
+      options.add(value);
+    }
+  });
+  return Array.from(options).sort((first, second) => first.localeCompare(second, 'zh-CN'));
+}
+
 function AiWorkspace({ news, articles }) {
   return (
     <section className="workspace">
@@ -1197,13 +1216,27 @@ function AdminWorkspace({
   adminComments,
   adminCommentPage,
   setAdminCommentPage,
+  adminCommentArticleFilter,
+  setAdminCommentArticleFilter,
+  adminCommentAuthorFilter,
+  setAdminCommentAuthorFilter,
   isLoadingAdminComments,
   refreshAdminComments,
   deleteAdminComment,
   currentUser,
   logout
 }) {
-  const adminCommentPageGroups = paginateFixedSize(adminComments, ADMIN_COMMENTS_PER_PAGE);
+  const adminCommentArticleOptions = uniqueCommentOptions(adminComments, 'articleTitle', 'articleId');
+  const adminCommentAuthorOptions = uniqueCommentOptions(adminComments, 'authorName');
+  const filteredAdminComments = adminComments.filter((comment) => {
+    const articleKey = comment.articleTitle || comment.articleId || '未命名文章';
+    const authorKey = comment.authorName || '访客';
+    return (
+      (adminCommentArticleFilter === 'all' || articleKey === adminCommentArticleFilter) &&
+      (adminCommentAuthorFilter === 'all' || authorKey === adminCommentAuthorFilter)
+    );
+  });
+  const adminCommentPageGroups = paginateFixedSize(filteredAdminComments, ADMIN_COMMENTS_PER_PAGE);
   const currentAdminCommentPage = Math.min(
     adminCommentPage,
     Math.max(adminCommentPageGroups.length - 1, 0)
@@ -1350,17 +1383,52 @@ function AdminWorkspace({
           <div className="admin-panel-heading">
             <h2>评论管理</h2>
             <div className="manager-actions">
-              <span>{isLoadingAdminComments ? '加载中' : `${adminComments.length} 条`}</span>
-              <button type="button" onClick={refreshAdminComments}>
+              <span>{isLoadingAdminComments ? '加载中' : `${filteredAdminComments.length} / ${adminComments.length} 条`}</span>
+              <button type="button" onClick={() => refreshAdminComments()}>
                 <RefreshCw size={17} />
                 <span>刷新</span>
               </button>
             </div>
           </div>
 
+          <div className="comment-filter-row">
+            <label>
+              <span>文章</span>
+              <select
+                value={adminCommentArticleFilter}
+                onChange={(event) => {
+                  setAdminCommentArticleFilter(event.target.value);
+                  setAdminCommentPage(0);
+                }}
+              >
+                <option value="all">全部文章</option>
+                {adminCommentArticleOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>作者</span>
+              <select
+                value={adminCommentAuthorFilter}
+                onChange={(event) => {
+                  setAdminCommentAuthorFilter(event.target.value);
+                  setAdminCommentPage(0);
+                }}
+              >
+                <option value="all">全部作者</option>
+                {adminCommentAuthorOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="manager-list">
             {adminComments.length === 0 ? (
               <p className="empty-state">暂无评论</p>
+            ) : filteredAdminComments.length === 0 ? (
+              <p className="empty-state">没有符合筛选条件的评论</p>
             ) : (
               visibleAdminComments.map((comment) => (
                 <article className="manager-row comment-row" key={comment.id}>
