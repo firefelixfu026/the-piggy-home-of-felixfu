@@ -1,4 +1,4 @@
-﻿# FelixFu 个人博客
+# FelixFu 个人博客
 
 [![CI](https://github.com/firefelixfu026/the-piggy-home-of-felixfu/actions/workflows/ci.yml/badge.svg)](https://github.com/firefelixfu026/the-piggy-home-of-felixfu/actions/workflows/ci.yml)
 
@@ -81,6 +81,8 @@ Copy-Item .env.example .env
 
 完整启动、停止、验证和常见问题见 [DOCKER_COMPOSE.md](./DOCKER_COMPOSE.md)。
 
+互动说明：点赞、收藏、点踩和“？”需要先登录；每个账号对同一篇文章的同一种互动只能记录一次。评论最多 300 字，文章页会按评论显示长度分页。
+
 如果只想手动启动开发服务，可以使用下面的方式。
 
 数据库：
@@ -115,7 +117,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 - 决斗小游戏：博客内通过 iframe 嵌入 `https://firefelixfu026.github.io/card-war-made-by-class-3/`，同时保留新窗口打开和源码仓库入口。
 - 登录鉴权：导航栏“登录”页支持 GitHub OAuth、带初始化密钥的管理员初始化和邮箱密码登录，登录状态会保存到浏览器本地。
 - 管理后台：只有管理员登录后才显示“管理”入口；后台支持发布、编辑、删除文章，并集中查看、刷新、删除评论，后台操作需要管理员 token。
-- 数据持久化：文章、评论、点赞、收藏、点踩写入 PostgreSQL。
+- 数据持久化：文章、评论、账号级点赞、收藏、点踩和“？”互动写入 PostgreSQL，刷新网页不会重复计数。
 - 自动测试：GitHub Actions 每次 push/PR 自动检查后端编译、前端构建和 Docker Compose 配置。
 
 ## 管理员登录

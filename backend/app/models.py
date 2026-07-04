@@ -26,6 +26,8 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(30), default="reader")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    reactions: Mapped[list["UserReaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
 
 class Article(Base):
     __tablename__ = "articles"
@@ -46,6 +48,10 @@ class Article(Base):
         order_by="Comment.created_at",
     )
     reactions: Mapped[list["ReactionCounter"]] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+    )
+    user_reactions: Mapped[list["UserReaction"]] = relationship(
         back_populates="article",
         cascade="all, delete-orphan",
     )
@@ -70,6 +76,20 @@ class Comment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     article: Mapped[Article] = relationship(back_populates="comments")
+
+
+class UserReaction(Base):
+    __tablename__ = "user_reactions"
+    __table_args__ = (UniqueConstraint("user_id", "article_id", "reaction_type", name="uq_user_article_reaction"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    article_id: Mapped[str] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), index=True)
+    reaction_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped[User] = relationship(back_populates="reactions")
+    article: Mapped[Article] = relationship(back_populates="user_reactions")
 
 
 class ReactionCounter(Base):

@@ -36,6 +36,21 @@ def _ensure_schema_updates() -> None:
         if "password_hash" not in user_columns:
             connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
 
+        connection.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS schema_migrations ("
+                "name VARCHAR(120) PRIMARY KEY, "
+                "applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+            )
+        )
+        reaction_reset_done = connection.execute(
+            text("SELECT name FROM schema_migrations WHERE name = 'reset_reactions_v1_2_3'")
+        ).first()
+        if not reaction_reset_done:
+            connection.execute(text("DELETE FROM user_reactions"))
+            connection.execute(text("UPDATE reaction_counters SET count = 0"))
+            connection.execute(text("INSERT INTO schema_migrations (name) VALUES ('reset_reactions_v1_2_3')"))
+
 
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()

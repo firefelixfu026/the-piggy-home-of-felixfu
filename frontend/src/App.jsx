@@ -8,6 +8,7 @@ import {
   Github,
   Heart,
   LogIn,
+  CircleHelp,
   LogOut,
   MessageCircle,
   PencilLine,
@@ -44,6 +45,11 @@ const publicNavItems = [
 
 const adminNavItem = { id: 'admin', label: '管理', icon: FilePenLine };
 
+const COMMENT_MAX_LENGTH = 300;
+const COMMENT_PAGE_UNITS = 5;
+const COMMENT_UNIT_CHARS = 60;
+const emptyReactionState = { like: false, favorite: false, downvote: false, question: false };
+
 function App() {
   const [activeView, setActiveView] = useState('overview');
   const [query, setQuery] = useState('');
@@ -57,6 +63,7 @@ function App() {
   const [comments, setComments] = useState({
     'react-fastapi-mvp': [{ id: 'local-1', authorName: '访客', content: '第一版先把前后端结构跑起来，后续再接数据库。' }]
   });
+  const [commentPages, setCommentPages] = useState({});
   const [articleForm, setArticleForm] = useState(createEmptyArticleForm);
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [adminMessage, setAdminMessage] = useState('');
@@ -153,6 +160,7 @@ function App() {
         const result = await response.json();
         setCurrentUser(result.user);
         localStorage.setItem('felix_blog_user', JSON.stringify(result.user));
+        await refreshArticles();
       } catch {
         setAuthMessage('后端服务不可用，无法校验登录状态');
       }
@@ -174,8 +182,11 @@ function App() {
     }
   }, [activeView, authToken, currentUser]);
 
-  async function refreshArticles() {
-    const articlesRes = await fetch('/api/articles');
+  async function refreshArticles(token = authToken) {
+    const headers = token ? { Authorization: 'Bearer ' + token } : {};
+    const articlesRes = await fetch('/api/articles', {
+      headers
+    });
     if (!articlesRes.ok) return [];
     const articleData = await articlesRes.json();
     setArticles(articleData);
@@ -186,6 +197,7 @@ function App() {
   function hydrateArticleState(nextArticles) {
     const nextComments = {};
     const nextReactionCounts = {};
+    const nextReactions = {};
 
     nextArticles.forEach((article) => {
       nextComments[article.id] = (article.comments || []).map((comment, index) =>
@@ -196,12 +208,18 @@ function App() {
       nextReactionCounts[article.id] = {
         like: article.reactions?.like || 0,
         favorite: article.reactions?.favorite || 0,
-        downvote: article.reactions?.downvote || 0
+        downvote: article.reactions?.downvote || 0,
+        question: article.reactions?.question || 0
+      };
+      nextReactions[article.id] = {
+        ...emptyReactionState,
+        ...(article.viewerReactions || {})
       };
     });
 
     setComments(nextComments);
     setReactionCounts(nextReactionCounts);
+    setReactions(nextReactions);
   }
 
   function getAuthHeaders() {
@@ -241,6 +259,7 @@ function App() {
       localStorage.setItem('felix_blog_user', JSON.stringify(result.user));
       setAuthToken(result.token);
       setCurrentUser(result.user);
+      await refreshArticles(result.token);
       setAuthMessage(authMode === 'register' ? '管理员已初始化' : '已登录');
       setActiveView('admin');
     } catch {
@@ -277,11 +296,19 @@ function App() {
   }, [articles, query, selectedTag]);
 
   async function toggleReaction(articleId, type) {
-    const nextActive = !reactions[articleId]?.[type];
+    if (!authToken) {
+      setAuthMessage('请先登录后再互动');
+      setActiveView('login');
+      return;
+    }
+
+    const previousActive = Boolean(reactions[articleId]?.[type]);
+    const nextActive = !previousActive;
 
     setReactions((current) => ({
       ...current,
       [articleId]: {
+        ...emptyReactionState,
         ...current[articleId],
         [type]: nextActive
       }
@@ -293,6 +320,7 @@ function App() {
         like: current[articleId]?.like || 0,
         favorite: current[articleId]?.favorite || 0,
         downvote: current[articleId]?.downvote || 0,
+        question: current[articleId]?.question || 0,
         [type]: Math.max(0, (current[articleId]?.[type] || 0) + (nextActive ? 1 : -1))
       }
     }));
@@ -300,25 +328,43 @@ function App() {
     try {
       const response = await fetch(`/api/articles/${articleId}/reaction`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ type, active: nextActive })
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setReactionCounts((current) => ({
-          ...current,
-          [articleId]: result.reactions
-        }));
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setAuthMessage('请先登录后再互动');
+          setActiveView('login');
+        }
+        await refreshArticles();
+        return;
       }
+
+      const result = await response.json();
+      setReactionCounts((current) => ({
+        ...current,
+        [articleId]: result.reactions
+      }));
+      setReactions((current) => ({
+        ...current,
+        [articleId]: {
+          ...emptyReactionState,
+          ...(result.viewerReactions || {})
+        }
+      }));
     } catch {
-      // Keep the optimistic local state when the API is unavailable.
+      await refreshArticles();
     }
   }
 
   async function submitComment(articleId) {
     const value = commentDrafts[articleId]?.trim();
     if (!value) return;
+    if (value.length > COMMENT_MAX_LENGTH) {
+      window.alert(`评论最多 ${COMMENT_MAX_LENGTH} 字`);
+      return;
+    }
 
     setCommentDrafts((current) => ({ ...current, [articleId]: '' }));
 
@@ -335,6 +381,7 @@ function App() {
           ...current,
           [articleId]: result.comments
         }));
+        setCommentPages((current) => ({ ...current, [articleId]: Number.MAX_SAFE_INTEGER }));
         return;
       }
     } catch {
@@ -584,6 +631,8 @@ function App() {
             commentDrafts={commentDrafts}
             setCommentDrafts={setCommentDrafts}
             submitComment={submitComment}
+            commentPages={commentPages}
+            setCommentPages={setCommentPages}
           />
         )}
 
@@ -693,7 +742,9 @@ function ArticleWorkspace({
   comments,
   commentDrafts,
   setCommentDrafts,
-  submitComment
+  submitComment,
+  commentPages,
+  setCommentPages
 }) {
   return (
     <section className="workspace">
@@ -716,7 +767,17 @@ function ArticleWorkspace({
       </div>
 
       <div className="article-list">
-        {articles.map((article) => (
+        {articles.map((article) => {
+          const articleComments = comments[article.id] || [];
+          const commentPageGroups = paginateComments(articleComments);
+          const currentCommentPage = Math.min(
+            commentPages[article.id] || 0,
+            Math.max(commentPageGroups.length - 1, 0)
+          );
+          const visibleComments = commentPageGroups[currentCommentPage] || [];
+          const draftLength = (commentDrafts[article.id] || '').length;
+
+          return (
           <article className="article-card" key={article.id}>
             <div className="article-meta">
               <span>{article.date}</span>
@@ -757,6 +818,13 @@ function ArticleWorkspace({
                 icon={ThumbsDown}
                 onClick={() => toggleReaction(article.id, 'downvote')}
               />
+              <IconToggle
+                active={reactions[article.id]?.question}
+                label="?"
+                count={reactionCounts[article.id]?.question || 0}
+                icon={CircleHelp}
+                onClick={() => toggleReaction(article.id, 'question')}
+              />
             </div>
 
             <div className="comment-box">
@@ -764,15 +832,46 @@ function ArticleWorkspace({
                 <MessageCircle size={17} />
                 <span>评论</span>
               </div>
-              {(comments[article.id] || []).map((comment, index) => (
-                <p className="comment" key={comment.id || `${article.id}-${index}`}>
+              {visibleComments.map((comment, index) => (
+                <p className="comment" key={comment.id || `${article.id}-${currentCommentPage}-${index}`}>
                   <strong>{comment.authorName || '访客'}：</strong>
                   <span>{comment.content}</span>
                 </p>
               ))}
+              {articleComments.length === 0 && <p className="comment empty-comment">暂无评论</p>}
+              {commentPageGroups.length > 1 && (
+                <div className="comment-pagination">
+                  <button
+                    type="button"
+                    disabled={currentCommentPage === 0}
+                    onClick={() =>
+                      setCommentPages((current) => ({
+                        ...current,
+                        [article.id]: Math.max(0, currentCommentPage - 1)
+                      }))
+                    }
+                  >
+                    上一页
+                  </button>
+                  <span>{currentCommentPage + 1} / {commentPageGroups.length}</span>
+                  <button
+                    type="button"
+                    disabled={currentCommentPage >= commentPageGroups.length - 1}
+                    onClick={() =>
+                      setCommentPages((current) => ({
+                        ...current,
+                        [article.id]: Math.min(commentPageGroups.length - 1, currentCommentPage + 1)
+                      }))
+                    }
+                  >
+                    下一页
+                  </button>
+                </div>
+              )}
               <div className="comment-form">
                 <input
                   value={commentDrafts[article.id] || ''}
+                  maxLength={COMMENT_MAX_LENGTH}
                   onChange={(event) =>
                     setCommentDrafts((current) => ({
                       ...current,
@@ -786,14 +885,45 @@ function ArticleWorkspace({
                   发布
                 </button>
               </div>
+              <div className="comment-limit">{draftLength} / {COMMENT_MAX_LENGTH}</div>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
 }
 
+function commentDisplayUnits(comment) {
+  const length = Math.max(1, (comment.content || '').length);
+  return Math.min(COMMENT_PAGE_UNITS, Math.max(1, Math.ceil(length / COMMENT_UNIT_CHARS)));
+}
+
+function paginateComments(commentList) {
+  if (!commentList.length) return [[]];
+
+  const pages = [];
+  let currentPage = [];
+  let currentUnits = 0;
+
+  commentList.forEach((comment) => {
+    const units = commentDisplayUnits(comment);
+    if (currentPage.length > 0 && currentUnits + units > COMMENT_PAGE_UNITS) {
+      pages.push(currentPage);
+      currentPage = [];
+      currentUnits = 0;
+    }
+    currentPage.push(comment);
+    currentUnits += units;
+  });
+
+  if (currentPage.length > 0) {
+    pages.push(currentPage);
+  }
+
+  return pages;
+}
 function AiWorkspace({ news, articles }) {
   return (
     <section className="workspace">

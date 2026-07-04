@@ -449,6 +449,39 @@ h3 {
   background: #102033;
 }
 
+.comment-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #6a7685;
+  font-size: 13px;
+}
+
+.comment-pagination button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  color: #334155;
+  background: #ffffff;
+}
+
+.comment-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.comment-limit {
+  justify-self: end;
+  color: #6a7685;
+  font-size: 12px;
+}
+
+.empty-comment {
+  color: #6a7685;
+}
+
 .split-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -17,6 +17,7 @@ from app.auth import (
     create_access_token,
     create_oauth_state,
     get_current_user,
+    get_optional_current_user,
     hash_password,
     require_admin,
     verify_oauth_state,
@@ -24,12 +25,13 @@ from app.auth import (
 )
 from app.database import SessionLocal, get_db, init_db
 from app.github_oauth import fetch_github_identity, get_github_authorize_url
-from app.models import Article, Comment, ReactionCounter, Tag, User
+from app.models import Article, Comment, ReactionCounter, Tag, User, UserReaction
 from app.seed import REACTION_TYPES, seed_database
 
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173").rstrip("/")
 ADMIN_SETUP_TOKEN = os.getenv("ADMIN_SETUP_TOKEN", "").strip()
+COMMENT_MAX_LENGTH = 300
 
 
 app = FastAPI(title="FelixFu Blog API", version="0.8.0")
@@ -77,7 +79,7 @@ class CommentIn(BaseModel):
 
 
 class ReactionIn(BaseModel):
-    type: Literal["like", "favorite", "downvote"]
+    type: Literal["like", "favorite", "downvote", "question"]
     active: bool = True
 
 
@@ -121,10 +123,14 @@ def get_profile() -> dict:
 
 
 @app.get("/api/articles")
-def list_articles(q: str | None = Query(default=None), db: Session = Depends(get_db)) -> list[dict]:
+def list_articles(
+    q: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+) -> list[dict]:
     articles = _load_articles(db)
     if not q:
-        return [_article_to_dict(article) for article in articles]
+        return [_article_to_dict(article, current_user) for article in articles]
 
     keyword = q.strip().lower()
     filtered = [
@@ -140,13 +146,17 @@ def list_articles(q: str | None = Query(default=None), db: Session = Depends(get
             ]
         ).lower()
     ]
-    return [_article_to_dict(article) for article in filtered]
+    return [_article_to_dict(article, current_user) for article in filtered]
 
 
 @app.get("/api/articles/{article_id}")
-def get_article(article_id: str, db: Session = Depends(get_db)) -> dict:
+def get_article(
+    article_id: str,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+) -> dict:
     article = _get_article_or_404(db, article_id)
-    return _article_to_dict(article)
+    return _article_to_dict(article, current_user)
 
 
 @app.post("/api/articles/{article_id}/comments")
@@ -155,6 +165,8 @@ def create_comment(article_id: str, comment: CommentIn, db: Session = Depends(ge
     content = comment.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Comment content is required")
+    if len(content) > COMMENT_MAX_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Comment must be {COMMENT_MAX_LENGTH} characters or fewer")
 
     db.add(
         Comment(
@@ -170,14 +182,40 @@ def create_comment(article_id: str, comment: CommentIn, db: Session = Depends(ge
 
 
 @app.post("/api/articles/{article_id}/reaction")
-def create_reaction(article_id: str, reaction: ReactionIn, db: Session = Depends(get_db)) -> dict:
+def create_reaction(
+    article_id: str,
+    reaction: ReactionIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
     article = _get_article_or_404(db, article_id)
-    counter = _get_or_create_reaction_counter(db, article.id, reaction.type)
-    counter.count = max(0, counter.count + (1 if reaction.active else -1))
+    existing = db.scalar(
+        select(UserReaction).where(
+            UserReaction.user_id == current_user.id,
+            UserReaction.article_id == article.id,
+            UserReaction.reaction_type == reaction.type,
+        )
+    )
+
+    if reaction.active and not existing:
+        db.add(
+            UserReaction(
+                user_id=current_user.id,
+                article_id=article.id,
+                reaction_type=reaction.type,
+            )
+        )
+    elif not reaction.active and existing:
+        db.delete(existing)
+
     db.commit()
-    db.refresh(article)
+    _sync_reaction_counters(db, article.id)
     article = _get_article_or_404(db, article_id)
-    return {"articleId": article_id, "reactions": _reaction_counts(article)}
+    return {
+        "articleId": article_id,
+        "reactions": _reaction_counts(article),
+        "viewerReactions": _viewer_reactions(article, current_user),
+    }
 
 
 @app.post("/api/auth/register")
@@ -275,7 +313,7 @@ def create_admin_article(
     ]
     db.add(article)
     db.commit()
-    return _article_to_dict(_get_article_or_404(db, article.id))
+    return _article_to_dict(_get_article_or_404(db, article.id), current_user)
 
 
 @app.put("/api/admin/articles/{article_id}")
@@ -293,7 +331,7 @@ def update_admin_article(
     article.read_time = (payload.readTime or article.read_time).strip()
     article.tags = [_get_or_create_tag(db, tag_name) for tag_name in _clean_tags(payload.tags)]
     db.commit()
-    return _article_to_dict(_get_article_or_404(db, article.id))
+    return _article_to_dict(_get_article_or_404(db, article.id), current_user)
 
 
 @app.delete("/api/admin/articles/{article_id}")
@@ -358,6 +396,7 @@ def _load_articles(db: Session) -> list[Article]:
             selectinload(Article.tags),
             selectinload(Article.comments),
             selectinload(Article.reactions),
+            selectinload(Article.user_reactions),
         )
         .order_by(Article.created_at.desc())
     )
@@ -372,6 +411,7 @@ def _get_article_or_404(db: Session, article_id: str) -> Article:
             selectinload(Article.tags),
             selectinload(Article.comments),
             selectinload(Article.reactions),
+            selectinload(Article.user_reactions),
         )
     )
     if not article:
@@ -379,7 +419,7 @@ def _get_article_or_404(db: Session, article_id: str) -> Article:
     return article
 
 
-def _article_to_dict(article: Article) -> dict:
+def _article_to_dict(article: Article, current_user: User | None = None) -> dict:
     return {
         "id": article.id,
         "title": article.title,
@@ -390,6 +430,7 @@ def _article_to_dict(article: Article) -> dict:
         "readTime": article.read_time,
         "comments": [_comment_to_dict(comment) for comment in article.comments],
         "reactions": _reaction_counts(article),
+        "viewerReactions": _viewer_reactions(article, current_user),
     }
 
 
@@ -415,6 +456,31 @@ def _reaction_counts(article: Article) -> dict[str, int]:
     for reaction in article.reactions:
         counts[reaction.reaction_type] = reaction.count
     return counts
+
+
+def _viewer_reactions(article: Article, current_user: User | None) -> dict[str, bool]:
+    selected = {reaction_type: False for reaction_type in REACTION_TYPES}
+    if not current_user:
+        return selected
+
+    for reaction in article.user_reactions:
+        if reaction.user_id == current_user.id and reaction.reaction_type in selected:
+            selected[reaction.reaction_type] = True
+    return selected
+
+
+def _sync_reaction_counters(db: Session, article_id: str) -> None:
+    for reaction_type in REACTION_TYPES:
+        counter = _get_or_create_reaction_counter(db, article_id, reaction_type)
+        counter.count = len(
+            db.scalars(
+                select(UserReaction.id).where(
+                    UserReaction.article_id == article_id,
+                    UserReaction.reaction_type == reaction_type,
+                )
+            ).all()
+        )
+    db.commit()
 
 
 def _get_or_create_reaction_counter(db: Session, article_id: str, reaction_type: str) -> ReactionCounter:
@@ -456,6 +522,7 @@ def _verify_admin_setup_token(value: str) -> None:
         raise HTTPException(status_code=403, detail="Admin setup is disabled")
     if not hmac.compare_digest(value.strip(), ADMIN_SETUP_TOKEN):
         raise HTTPException(status_code=403, detail="Invalid admin setup token")
+
 
 def _normalize_email(value: str) -> str:
     email = value.strip().lower()

@@ -233,3 +233,17 @@ Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/articles?q=AI' -UseBasicParsin
 ## 8. 后续改进
 
 当前仍使用 `Base.metadata.create_all()` 自动建表，并用少量启动时迁移兼容旧表。后续进入多人协作或线上部署前，应加入 Alembic，使用正式数据库迁移管理表结构变化。
+## v1.2.3 数据结构补充：账号级互动
+
+本阶段新增 `user_reactions` 表，用来记录“哪个账号对哪篇文章做过哪一种互动”。字段包括：
+
+- `user_id`：互动账号。
+- `article_id`：被互动的文章。
+- `reaction_type`：`like`、`favorite`、`downvote` 或 `question`。
+- `created_at`：互动创建时间。
+
+约束规则：同一个 `user_id + article_id + reaction_type` 只能存在一条记录，所以刷新网页或重复点击不会重复累计。`reaction_counters` 仍保留为计数缓存，但计数会从 `user_reactions` 同步。
+
+启动时会执行一次 `reset_reactions_v1_2_3` 迁移：删除旧的匿名互动记录，并把 `reaction_counters` 清零。之后所有互动都必须登录后写入 `user_reactions`。
+
+评论限制：单条评论最多 300 字；前端按显示长度分页，每页最多约 5 条短评论的展示量。

@@ -34,7 +34,7 @@ SEED_ARTICLES = [
     },
 ]
 
-REACTION_TYPES = ["like", "favorite", "downvote"]
+REACTION_TYPES = ["like", "favorite", "downvote", "question"]
 
 
 def seed_database(db: Session) -> None:
