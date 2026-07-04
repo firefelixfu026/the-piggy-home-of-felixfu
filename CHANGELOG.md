@@ -1,5 +1,10 @@
 ﻿# 版本日志
 
+## v1.1.1 - 自动部署首次运行修复
+
+- 修复 Deploy workflow 首次运行时，服务器尚未拉取 `scripts/deploy-production.sh` 导致 `chmod` 找不到文件的问题。
+- Deploy workflow 现在会先在服务器执行 `git pull --ff-only`，再运行部署脚本。
+- 当前失败点说明：SSH 和 GitHub Secrets 已验证通过，问题只在部署脚本执行顺序。
 ## v1.1.0 - GitHub Actions 自动部署
 
 - 新增 `.github/workflows/deploy.yml`，在 CI 成功后自动 SSH 到阿里云服务器执行部署。
@@ -183,17 +188,3 @@
 - 实现个人主页、文章列表、搜索、互动按钮、AI 模块和小游戏入口的前端雏形。
 - 增加 README 和代码分析文档。
 - 暂未接入 PostgreSQL、GitHub OAuth、GitHub Actions 和云服务器部署。
-
-
-
-
-
-
-
-
-
-
-
-
-
-

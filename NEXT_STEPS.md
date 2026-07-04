@@ -381,3 +381,34 @@ DEPLOY_SSH_KEY=部署私钥内容
 3. 把 private key 加到 GitHub Secrets。
 4. 手动触发一次 Deploy workflow 验证。
 5. 验证成功后进入 v1.2.0：增强测试覆盖和内容功能。
+## 20. GitHub Actions 自动部署首次运行修复
+
+本次失败现象：
+
+```text
+Deploy on server 失败
+chmod: cannot access 'scripts/deploy-production.sh': No such file or directory
+```
+
+判断结果：
+
+```text
+Validate deployment secrets 已通过
+Configure SSH 已通过
+说明 GitHub Secrets 和 SSH key 配置正确
+失败原因是服务器目录还没拉取到最新的部署脚本
+```
+
+已修复：
+
+```text
+.github/workflows/deploy.yml 现在会先执行 git pull --ff-only
+然后再 chmod +x scripts/deploy-production.sh
+最后运行部署脚本
+```
+
+下一步：
+
+1. 推送本次修复到 GitHub。
+2. 回到 GitHub Actions 的 Deploy 页面重新运行 workflow。
+3. 如果通过，自动部署链路即完成：push main -> CI -> Deploy -> 服务器更新。

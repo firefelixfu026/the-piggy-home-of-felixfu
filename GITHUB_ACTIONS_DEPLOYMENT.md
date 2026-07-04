@@ -1,6 +1,6 @@
 ﻿# GitHub Actions 自动部署指南
 
-版本：v1.1.0
+版本：v1.1.1
 更新时间：2026-07-04
 
 本文档记录 FelixFu 个人博客的 GitHub Actions 自动部署方案。
@@ -167,3 +167,16 @@ chmod +x scripts/deploy-production.sh
 - 不要把私钥写入仓库。
 - 部署 key 建议只用于这台服务器。
 - 如果怀疑 key 泄露，删除服务器 `authorized_keys` 中对应 public key，并在 GitHub Secrets 中删除 `DEPLOY_SSH_KEY`。
+## 10. 首次运行故障记录
+
+如果 Deploy workflow 在 `Deploy on server` 步骤报错：
+
+```text
+chmod: cannot access 'scripts/deploy-production.sh': No such file or directory
+```
+
+说明 GitHub Actions 已经成功 SSH 到服务器，但服务器上的 `/opt/felixfu-blog` 工作目录还没有拉到包含部署脚本的最新提交。
+
+v1.1.1 已修复：workflow 会先执行 `git pull --ff-only`，再运行 `scripts/deploy-production.sh`。
+
+修复后只需要回到 GitHub Actions 页面重新运行 `Deploy` workflow。

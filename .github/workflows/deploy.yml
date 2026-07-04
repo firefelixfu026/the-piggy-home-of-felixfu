@@ -50,6 +50,7 @@ jobs:
             "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$DEPLOY_PATH"
+          git pull --ff-only
           chmod +x scripts/deploy-production.sh
           ./scripts/deploy-production.sh
           REMOTE
