@@ -59,6 +59,8 @@ function App() {
   const [articleForm, setArticleForm] = useState(createEmptyArticleForm);
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [adminMessage, setAdminMessage] = useState('');
+  const [adminComments, setAdminComments] = useState([]);
+  const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [isSavingArticle, setIsSavingArticle] = useState(false);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
   const [currentUser, setCurrentUser] = useState(() => {
@@ -149,6 +151,12 @@ function App() {
 
     loadCurrentUser();
   }, [authToken]);
+
+  useEffect(() => {
+    if (activeView === 'admin' && currentUser?.role === 'admin') {
+      refreshAdminComments();
+    }
+  }, [activeView, currentUser?.role, authToken]);
 
   async function refreshArticles() {
     const articlesRes = await fetch('/api/articles');
@@ -431,6 +439,53 @@ function App() {
     }
   }
 
+  async function refreshAdminComments() {
+    if (!authToken) return;
+
+    setIsLoadingAdminComments(true);
+    try {
+      const response = await fetch('/api/admin/comments', {
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setActiveView('login');
+        }
+        return;
+      }
+
+      setAdminComments(await response.json());
+    } catch {
+      setAdminMessage('后端服务不可用，无法加载评论');
+    } finally {
+      setIsLoadingAdminComments(false);
+    }
+  }
+
+  async function deleteAdminComment(comment) {
+    if (!window.confirm(`确定删除 ${comment.authorName || '访客'} 的这条评论吗？`)) return;
+
+    try {
+      const response = await fetch(`/api/admin/comments/${comment.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) {
+        setAdminMessage('评论删除失败');
+        if (response.status === 401 || response.status === 403) {
+          setActiveView('login');
+        }
+        return;
+      }
+
+      await refreshArticles();
+      await refreshAdminComments();
+      setAdminMessage('评论已删除');
+    } catch {
+      setAdminMessage('后端服务不可用，评论删除失败');
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="博客导航">
@@ -562,6 +617,10 @@ function App() {
             resetArticleForm={resetArticleForm}
             startEditingArticle={startEditingArticle}
             deleteArticle={deleteArticle}
+            adminComments={adminComments}
+            isLoadingAdminComments={isLoadingAdminComments}
+            refreshAdminComments={refreshAdminComments}
+            deleteAdminComment={deleteAdminComment}
             currentUser={currentUser}
             logout={logout}
           />
@@ -948,6 +1007,10 @@ function AdminWorkspace({
   resetArticleForm,
   startEditingArticle,
   deleteArticle,
+  adminComments,
+  isLoadingAdminComments,
+  refreshAdminComments,
+  deleteAdminComment,
   currentUser,
   logout
 }) {
@@ -1084,6 +1147,44 @@ function AdminWorkspace({
                 </div>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="admin-panel comment-manager">
+          <div className="admin-panel-heading">
+            <h2>评论管理</h2>
+            <div className="manager-actions">
+              <span>{isLoadingAdminComments ? '加载中' : `${adminComments.length} 条`}</span>
+              <button type="button" onClick={refreshAdminComments}>
+                <RefreshCw size={17} />
+                <span>刷新</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="manager-list">
+            {adminComments.length === 0 ? (
+              <p className="empty-state">暂无评论</p>
+            ) : (
+              adminComments.map((comment) => (
+                <article className="manager-row comment-row" key={comment.id}>
+                  <div>
+                    <div className="comment-meta-line">
+                      <strong>{comment.authorName || '访客'}</strong>
+                      <span>{new Date(comment.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
+                    </div>
+                    <h3>{comment.articleTitle || comment.articleId}</h3>
+                    <p>{comment.content}</p>
+                  </div>
+                  <div className="manager-actions">
+                    <button className="danger-button" type="button" onClick={() => deleteAdminComment(comment)}>
+                      <Trash2 size={17} />
+                      <span>删除</span>
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
           </div>
         </section>
       </div>

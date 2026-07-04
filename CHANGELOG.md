@@ -1,5 +1,12 @@
 ﻿# 版本日志
 
+## v1.2.0 - 管理后台评论管理
+
+- 后端新增 `GET /api/admin/comments`，管理员可集中查看全站评论。
+- 后端新增 `DELETE /api/admin/comments/{comment_id}`，管理员可删除不合适的评论。
+- 管理后台新增“评论管理”区域，支持查看评论所属文章、评论人、发布时间和内容。
+- 管理后台支持刷新评论列表和删除单条评论，删除后自动刷新文章与评论状态。
+- 已执行 `python -m compileall backend\app` 和 `npm run build` 验证通过。
 ## v1.1.2 - 个人头像上线验证
 
 - 新增 `frontend/public/avatar.jpg`，作为网站个人头像资源。

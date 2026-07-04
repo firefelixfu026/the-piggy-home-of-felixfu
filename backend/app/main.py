@@ -303,6 +303,34 @@ def delete_admin_article(
     return {"status": "deleted", "articleId": article_id}
 
 
+@app.get("/api/admin/comments")
+def list_admin_comments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> list[dict]:
+    comments = db.scalars(
+        select(Comment)
+        .options(selectinload(Comment.article))
+        .order_by(Comment.created_at.desc())
+    ).all()
+    return [_admin_comment_to_dict(comment) for comment in comments]
+
+
+@app.delete("/api/admin/comments/{comment_id}")
+def delete_admin_comment(
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict[str, int | str]:
+    comment = db.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    db.delete(comment)
+    db.commit()
+    return {"status": "deleted", "commentId": comment_id}
+
+
 @app.get("/api/ai/news")
 def get_ai_news() -> list[dict]:
     return AI_NEWS
@@ -366,6 +394,14 @@ def _comment_to_dict(comment: Comment) -> dict:
         "authorName": comment.author_name,
         "content": comment.content,
         "createdAt": comment.created_at.isoformat(),
+    }
+
+
+def _admin_comment_to_dict(comment: Comment) -> dict:
+    return {
+        **_comment_to_dict(comment),
+        "articleId": comment.article_id,
+        "articleTitle": comment.article.title if comment.article else "",
     }
 
 
