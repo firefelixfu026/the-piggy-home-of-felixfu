@@ -160,7 +160,12 @@ def get_article(
 
 
 @app.post("/api/articles/{article_id}/comments")
-def create_comment(article_id: str, comment: CommentIn, db: Session = Depends(get_db)) -> dict:
+def create_comment(
+    article_id: str,
+    comment: CommentIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
     article = _get_article_or_404(db, article_id)
     content = comment.content.strip()
     if not content:
@@ -171,7 +176,7 @@ def create_comment(article_id: str, comment: CommentIn, db: Session = Depends(ge
     db.add(
         Comment(
             article_id=article.id,
-            author_name=(comment.authorName or "访客").strip() or "访客",
+            author_name=(current_user.display_name or current_user.email or "访客").strip() or "访客",
             content=content,
         )
     )

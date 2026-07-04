@@ -382,6 +382,17 @@ h3 {
   background: #1f7a6d;
 }
 
+.interaction-message {
+  max-width: 720px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #b7ebd0;
+  border-radius: 8px;
+  color: #176b55;
+  background: #e9fbf1;
+  font-weight: 700;
+}
+
 .icon-toggle {
   min-width: 88px;
   padding: 0 12px;
@@ -399,6 +410,8 @@ h3 {
 .comment-box {
   display: grid;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
   padding-top: 14px;
   border-top: 1px solid #e5eaf0;
 }
@@ -412,10 +425,13 @@ h3 {
 }
 
 .comment {
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
   background: #f4f6f8;
+  overflow: hidden;
 }
 
 .comment strong {
@@ -424,9 +440,13 @@ h3 {
 
 .comment span {
   color: #5b6878;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .comment-form {
+  min-width: 0;
+  max-width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
@@ -434,6 +454,7 @@ h3 {
 
 .comment-form input {
   min-width: 0;
+  max-width: 100%;
   height: 38px;
   padding: 0 12px;
   border: 1px solid #d8e0e9;

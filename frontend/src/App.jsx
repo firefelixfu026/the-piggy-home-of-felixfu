@@ -86,6 +86,7 @@ function App() {
     setupToken: ''
   });
   const [authMessage, setAuthMessage] = useState('');
+  const [interactionMessage, setInteractionMessage] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   const visibleNavItems = useMemo(() => {
@@ -226,6 +227,10 @@ function App() {
     return authToken ? { Authorization: `Bearer ${authToken}` } : {};
   }
 
+  function showLoginRequired(action) {
+    setInteractionMessage(`请先登录后再${action}`);
+  }
+
   function updateAuthForm(field, value) {
     setAuthForm((current) => ({ ...current, [field]: value }));
   }
@@ -259,6 +264,7 @@ function App() {
       localStorage.setItem('felix_blog_user', JSON.stringify(result.user));
       setAuthToken(result.token);
       setCurrentUser(result.user);
+      setInteractionMessage('');
       await refreshArticles(result.token);
       setAuthMessage(authMode === 'register' ? '管理员已初始化' : '已登录');
       setActiveView('admin');
@@ -275,6 +281,7 @@ function App() {
     setAuthToken('');
     setCurrentUser(null);
     setAuthMessage('');
+    setInteractionMessage('');
     if (redirect) {
       setActiveView('overview');
     }
@@ -297,8 +304,7 @@ function App() {
 
   async function toggleReaction(articleId, type) {
     if (!authToken) {
-      setAuthMessage('请先登录后再互动');
-      setActiveView('login');
+      showLoginRequired('点赞、收藏、点踩或使用“？”');
       return;
     }
 
@@ -334,14 +340,14 @@ function App() {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          setAuthMessage('请先登录后再互动');
-          setActiveView('login');
+          showLoginRequired('点赞、收藏、点踩或使用“？”');
         }
         await refreshArticles();
         return;
       }
 
       const result = await response.json();
+      setInteractionMessage('');
       setReactionCounts((current) => ({
         ...current,
         [articleId]: result.reactions
@@ -359,6 +365,11 @@ function App() {
   }
 
   async function submitComment(articleId) {
+    if (!authToken) {
+      showLoginRequired('评论');
+      return;
+    }
+
     const value = commentDrafts[articleId]?.trim();
     if (!value) return;
     if (value.length > COMMENT_MAX_LENGTH) {
@@ -371,8 +382,8 @@ function App() {
     try {
       const response = await fetch(`/api/articles/${articleId}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: value, authorName: '访客' })
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ content: value })
       });
 
       if (response.ok) {
@@ -381,9 +392,16 @@ function App() {
           ...current,
           [articleId]: result.comments
         }));
+        setInteractionMessage('');
         setCommentPages((current) => ({ ...current, [articleId]: Number.MAX_SAFE_INTEGER }));
         return;
       }
+
+      if (response.status === 401 || response.status === 403) {
+        showLoginRequired('评论');
+        await refreshArticles();
+      }
+      return;
     } catch {
       // Fall through to local-only behavior for standalone frontend previews.
     }
@@ -392,7 +410,11 @@ function App() {
       ...current,
       [articleId]: [
         ...(current[articleId] || []),
-        { id: `${articleId}-${Date.now()}`, authorName: '访客', content: value }
+        {
+          id: `${articleId}-${Date.now()}`,
+          authorName: currentUser?.displayName || currentUser?.email || '我',
+          content: value
+        }
       ]
     }));
   }
@@ -631,6 +653,8 @@ function App() {
             commentDrafts={commentDrafts}
             setCommentDrafts={setCommentDrafts}
             submitComment={submitComment}
+            interactionMessage={interactionMessage}
+            currentUser={currentUser}
             commentPages={commentPages}
             setCommentPages={setCommentPages}
           />
@@ -743,6 +767,8 @@ function ArticleWorkspace({
   commentDrafts,
   setCommentDrafts,
   submitComment,
+  interactionMessage,
+  currentUser,
   commentPages,
   setCommentPages
 }) {
@@ -765,6 +791,8 @@ function ArticleWorkspace({
           </button>
         ))}
       </div>
+
+      {interactionMessage && <p className="interaction-message">{interactionMessage}</p>}
 
       <div className="article-list">
         {articles.map((article) => {
@@ -878,7 +906,7 @@ function ArticleWorkspace({
                       [article.id]: event.target.value
                     }))
                   }
-                  placeholder="写一条评论"
+                  placeholder={currentUser ? '写一条评论' : '登录后才能评论'}
                   aria-label={`评论 ${article.title}`}
                 />
                 <button type="button" onClick={() => submitComment(article.id)}>
