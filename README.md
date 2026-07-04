@@ -114,7 +114,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 - 决斗小游戏：博客内通过 iframe 嵌入 `https://firefelixfu026.github.io/card-war-made-by-class-3/`，同时保留新窗口打开和源码仓库入口。
 - 登录鉴权：导航栏“登录”页支持 GitHub OAuth、带初始化密钥的管理员初始化和邮箱密码登录，登录状态会保存到浏览器本地。
-- 管理后台：导航栏“管理”页支持发布、编辑、删除文章，并集中查看、刷新、删除评论，后台操作需要管理员 token。
+- 管理后台：只有管理员登录后才显示“管理”入口；后台支持发布、编辑、删除文章，并集中查看、刷新、删除评论，后台操作需要管理员 token。
 - 数据持久化：文章、评论、点赞、收藏、点踩写入 PostgreSQL。
 - 自动测试：GitHub Actions 每次 push/PR 自动检查后端编译、前端构建和 Docker Compose 配置。
 

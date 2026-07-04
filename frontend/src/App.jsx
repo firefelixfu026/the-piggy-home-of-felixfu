@@ -34,14 +34,15 @@ const createEmptyArticleForm = () => ({
   readTime: '3 min'
 });
 
-const navItems = [
+const publicNavItems = [
   { id: 'overview', label: '首页', icon: UserRound },
   { id: 'articles', label: '文章', icon: BookOpen },
   { id: 'ai', label: 'AI', icon: Bot },
   { id: 'game', label: '游戏', icon: Gamepad2 },
-  { id: 'login', label: '登录', icon: LogIn },
-  { id: 'admin', label: '管理', icon: FilePenLine }
+  { id: 'login', label: '登录', icon: LogIn }
 ];
+
+const adminNavItem = { id: 'admin', label: '管理', icon: FilePenLine };
 
 function App() {
   const [activeView, setActiveView] = useState('overview');
@@ -79,6 +80,13 @@ function App() {
   });
   const [authMessage, setAuthMessage] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  const visibleNavItems = useMemo(() => {
+    if (currentUser?.role === 'admin') {
+      return [...publicNavItems.filter((item) => item.id !== 'login'), adminNavItem];
+    }
+    return publicNavItems;
+  }, [currentUser?.role]);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -158,6 +166,13 @@ function App() {
       refreshAdminComments();
     }
   }, [activeView, currentUser?.role, authToken]);
+
+  useEffect(() => {
+    if (activeView !== 'admin') return;
+    if (!authToken || (currentUser && currentUser.role !== 'admin')) {
+      setActiveView('overview');
+    }
+  }, [activeView, authToken, currentUser]);
 
   async function refreshArticles() {
     const articlesRes = await fetch('/api/articles');
@@ -499,7 +514,7 @@ function App() {
         </div>
 
         <nav className="nav-list">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
@@ -591,20 +606,6 @@ function App() {
           />
         )}
 
-        {activeView === 'admin' && currentUser?.role !== 'admin' && (
-          <LoginWorkspace
-            authMode={authMode}
-            setAuthMode={setAuthMode}
-            authForm={authForm}
-            updateAuthForm={updateAuthForm}
-            submitAuthForm={submitAuthForm}
-            authMessage={authMessage || '请先登录管理员账号'}
-            isAuthLoading={isAuthLoading}
-            currentUser={currentUser}
-            logout={logout}
-            goToAdmin={() => setActiveView('admin')}
-          />
-        )}
 
         {activeView === 'admin' && currentUser?.role === 'admin' && (
           <AdminWorkspace
