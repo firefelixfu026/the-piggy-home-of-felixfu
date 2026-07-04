@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ArrowLeft,
   BookOpen,
   Bot,
   ExternalLink,
@@ -65,6 +66,7 @@ function App() {
     'react-fastapi-mvp': [{ id: 'local-1', authorName: '访客', content: '第一版先把前后端结构跑起来，后续再接数据库。' }]
   });
   const [commentPages, setCommentPages] = useState({});
+  const [selectedArticleId, setSelectedArticleId] = useState(null);
   const [articleForm, setArticleForm] = useState(createEmptyArticleForm);
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [adminMessage, setAdminMessage] = useState('');
@@ -650,6 +652,8 @@ function App() {
             tags={tags}
             selectedTag={selectedTag}
             setSelectedTag={setSelectedTag}
+            selectedArticleId={selectedArticleId}
+            setSelectedArticleId={setSelectedArticleId}
             reactions={reactions}
             reactionCounts={reactionCounts}
             toggleReaction={toggleReaction}
@@ -770,6 +774,8 @@ function ArticleWorkspace({
   tags,
   selectedTag,
   setSelectedTag,
+  selectedArticleId,
+  setSelectedArticleId,
   reactions,
   reactionCounts,
   toggleReaction,
@@ -782,6 +788,28 @@ function ArticleWorkspace({
   commentPages,
   setCommentPages
 }) {
+  const selectedArticle = articles.find((article) => article.id === selectedArticleId) || null;
+
+  if (selectedArticle) {
+    return (
+      <ArticleDetail
+        article={selectedArticle}
+        reactions={reactions}
+        reactionCounts={reactionCounts}
+        toggleReaction={toggleReaction}
+        comments={comments}
+        commentDrafts={commentDrafts}
+        setCommentDrafts={setCommentDrafts}
+        submitComment={submitComment}
+        interactionMessage={interactionMessage}
+        currentUser={currentUser}
+        commentPages={commentPages}
+        setCommentPages={setCommentPages}
+        onBack={() => setSelectedArticleId(null)}
+      />
+    );
+  }
+
   return (
     <section className="workspace">
       <div className="section-heading">
@@ -795,7 +823,10 @@ function ArticleWorkspace({
             key={tag}
             className={selectedTag === tag ? 'tag-button active' : 'tag-button'}
             type="button"
-            onClick={() => setSelectedTag(tag)}
+            onClick={() => {
+              setSelectedTag(tag);
+              setSelectedArticleId(null);
+            }}
           >
             {tag}
           </button>
@@ -805,136 +836,333 @@ function ArticleWorkspace({
       {interactionMessage && <p className="interaction-message">{interactionMessage}</p>}
 
       <div className="article-list">
-        {articles.map((article) => {
-          const articleComments = comments[article.id] || [];
-          const commentPageGroups = paginateComments(articleComments);
-          const currentCommentPage = Math.min(
-            commentPages[article.id] || 0,
-            Math.max(commentPageGroups.length - 1, 0)
-          );
-          const visibleComments = commentPageGroups[currentCommentPage] || [];
-          const draftLength = (commentDrafts[article.id] || '').length;
-
-          return (
-          <article className="article-card" key={article.id}>
+        {articles.map((article) => (
+          <article className="article-card article-preview" key={article.id}>
             <div className="article-meta">
               <span>{article.date}</span>
               <span>{article.readTime}</span>
             </div>
             <h2>{article.title}</h2>
             <p className="article-summary">{article.summary}</p>
-            {article.content && (
-              <div className="article-content" aria-label={`${article.title} 正文`}>
-                {article.content}
-              </div>
-            )}
             <div className="tag-row">
               {article.tags.map((tag) => (
                 <span key={tag}>{tag}</span>
               ))}
             </div>
-
-            <div className="reaction-row">
-              <IconToggle
-                active={reactions[article.id]?.like}
-                label="点赞"
-                count={reactionCounts[article.id]?.like || 0}
-                icon={Heart}
-                onClick={() => toggleReaction(article.id, 'like')}
-              />
-              <IconToggle
-                active={reactions[article.id]?.favorite}
-                label="收藏"
-                count={reactionCounts[article.id]?.favorite || 0}
-                icon={Star}
-                onClick={() => toggleReaction(article.id, 'favorite')}
-              />
-              <IconToggle
-                active={reactions[article.id]?.downvote}
-                label="点踩"
-                count={reactionCounts[article.id]?.downvote || 0}
-                icon={ThumbsDown}
-                onClick={() => toggleReaction(article.id, 'downvote')}
-              />
-              <IconToggle
-                active={reactions[article.id]?.question}
-                label="?"
-                count={reactionCounts[article.id]?.question || 0}
-                icon={CircleHelp}
-                onClick={() => toggleReaction(article.id, 'question')}
-              />
-            </div>
-
-            <div className="comment-box">
-              <div className="comment-title">
-                <MessageCircle size={17} />
-                <span>评论</span>
-              </div>
-              {visibleComments.map((comment, index) => (
-                <p className="comment" key={comment.id || `${article.id}-${currentCommentPage}-${index}`}>
-                  <strong>{comment.authorName || '访客'}：</strong>
-                  <span>{comment.content}</span>
-                </p>
-              ))}
-              {articleComments.length === 0 && <p className="comment empty-comment">暂无评论</p>}
-              {commentPageGroups.length > 1 && (
-                <div className="comment-pagination">
-                  <button
-                    type="button"
-                    disabled={currentCommentPage === 0}
-                    onClick={() =>
-                      setCommentPages((current) => ({
-                        ...current,
-                        [article.id]: Math.max(0, currentCommentPage - 1)
-                      }))
-                    }
-                  >
-                    上一页
-                  </button>
-                  <span>{currentCommentPage + 1} / {commentPageGroups.length}</span>
-                  <button
-                    type="button"
-                    disabled={currentCommentPage >= commentPageGroups.length - 1}
-                    onClick={() =>
-                      setCommentPages((current) => ({
-                        ...current,
-                        [article.id]: Math.min(commentPageGroups.length - 1, currentCommentPage + 1)
-                      }))
-                    }
-                  >
-                    下一页
-                  </button>
-                </div>
-              )}
-              <div className="comment-form">
-                <input
-                  value={commentDrafts[article.id] || ''}
-                  maxLength={COMMENT_MAX_LENGTH}
-                  onChange={(event) =>
-                    setCommentDrafts((current) => ({
-                      ...current,
-                      [article.id]: event.target.value
-                    }))
-                  }
-                  placeholder={currentUser ? '写一条评论' : '登录后才能评论'}
-                  aria-label={`评论 ${article.title}`}
-                />
-                <button type="button" onClick={() => submitComment(article.id)}>
-                  发布
-                </button>
-              </div>
-              <div className="comment-limit">
-                {currentUser ? `将以 ${currentUser.displayName || currentUser.email} 身份评论` : '登录后才能评论'} · {draftLength} / {COMMENT_MAX_LENGTH}
-              </div>
-            </div>
+            <button className="read-more-button" type="button" onClick={() => setSelectedArticleId(article.id)}>
+              阅读全文
+            </button>
           </article>
-          );
-        })}
+        ))}
       </div>
     </section>
   );
 }
 
+function ArticleDetail({
+  article,
+  reactions,
+  reactionCounts,
+  toggleReaction,
+  comments,
+  commentDrafts,
+  setCommentDrafts,
+  submitComment,
+  interactionMessage,
+  currentUser,
+  commentPages,
+  setCommentPages,
+  onBack
+}) {
+  const articleComments = comments[article.id] || [];
+  const commentPageGroups = paginateComments(articleComments);
+  const currentCommentPage = Math.min(
+    commentPages[article.id] || 0,
+    Math.max(commentPageGroups.length - 1, 0)
+  );
+  const visibleComments = commentPageGroups[currentCommentPage] || [];
+  const draftLength = (commentDrafts[article.id] || '').length;
+
+  return (
+    <section className="workspace article-detail-workspace">
+      <button className="back-button" type="button" onClick={onBack}>
+        <ArrowLeft size={18} />
+        <span>返回文章列表</span>
+      </button>
+
+      {interactionMessage && <p className="interaction-message">{interactionMessage}</p>}
+
+      <article className="article-card article-detail-card">
+        <div className="article-meta">
+          <span>{article.date}</span>
+          <span>{article.readTime}</span>
+        </div>
+        <h1>{article.title}</h1>
+        <p className="article-summary">{article.summary}</p>
+        <div className="tag-row">
+          {article.tags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
+
+        {article.content && (
+          <MarkdownContent content={article.content} title={article.title} />
+        )}
+
+        <div className="reaction-row">
+          <IconToggle
+            active={reactions[article.id]?.like}
+            label="点赞"
+            count={reactionCounts[article.id]?.like || 0}
+            icon={Heart}
+            onClick={() => toggleReaction(article.id, 'like')}
+          />
+          <IconToggle
+            active={reactions[article.id]?.favorite}
+            label="收藏"
+            count={reactionCounts[article.id]?.favorite || 0}
+            icon={Star}
+            onClick={() => toggleReaction(article.id, 'favorite')}
+          />
+          <IconToggle
+            active={reactions[article.id]?.downvote}
+            label="点踩"
+            count={reactionCounts[article.id]?.downvote || 0}
+            icon={ThumbsDown}
+            onClick={() => toggleReaction(article.id, 'downvote')}
+          />
+          <IconToggle
+            active={reactions[article.id]?.question}
+            label="?"
+            count={reactionCounts[article.id]?.question || 0}
+            icon={CircleHelp}
+            onClick={() => toggleReaction(article.id, 'question')}
+          />
+        </div>
+
+        <div className="comment-box">
+          <div className="comment-title">
+            <MessageCircle size={17} />
+            <span>评论</span>
+          </div>
+          {visibleComments.map((comment, index) => (
+            <p className="comment" key={comment.id || `${article.id}-${currentCommentPage}-${index}`}>
+              <strong>{comment.authorName || '访客'}：</strong>
+              <span>{comment.content}</span>
+            </p>
+          ))}
+          {articleComments.length === 0 && <p className="comment empty-comment">暂无评论</p>}
+          {commentPageGroups.length > 1 && (
+            <div className="comment-pagination">
+              <button
+                type="button"
+                disabled={currentCommentPage === 0}
+                onClick={() =>
+                  setCommentPages((current) => ({
+                    ...current,
+                    [article.id]: Math.max(0, currentCommentPage - 1)
+                  }))
+                }
+              >
+                上一页
+              </button>
+              <span>{currentCommentPage + 1} / {commentPageGroups.length}</span>
+              <button
+                type="button"
+                disabled={currentCommentPage >= commentPageGroups.length - 1}
+                onClick={() =>
+                  setCommentPages((current) => ({
+                    ...current,
+                    [article.id]: Math.min(commentPageGroups.length - 1, currentCommentPage + 1)
+                  }))
+                }
+              >
+                下一页
+              </button>
+            </div>
+          )}
+          <div className="comment-form">
+            <input
+              value={commentDrafts[article.id] || ''}
+              maxLength={COMMENT_MAX_LENGTH}
+              onChange={(event) =>
+                setCommentDrafts((current) => ({
+                  ...current,
+                  [article.id]: event.target.value
+                }))
+              }
+              placeholder={currentUser ? '写一条评论' : '登录后才能评论'}
+              aria-label={`评论 ${article.title}`}
+            />
+            <button type="button" onClick={() => submitComment(article.id)}>
+              发布
+            </button>
+          </div>
+          <div className="comment-limit">
+            {currentUser ? `将以 ${currentUser.displayName || currentUser.email} 身份评论` : '登录后才能评论'} · {draftLength} / {COMMENT_MAX_LENGTH}
+          </div>
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function MarkdownContent({ content, title }) {
+  const blocks = parseMarkdownBlocks(content);
+  return (
+    <div className="markdown-content" aria-label={`${title} 正文`}>
+      {blocks.map((block, index) => renderMarkdownBlock(block, index))}
+    </div>
+  );
+}
+
+function parseMarkdownBlocks(content) {
+  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const blocks = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith('```')) {
+      const language = trimmed.slice(3).trim();
+      const codeLines = [];
+      index += 1;
+      while (index < lines.length && !lines[index].trim().startsWith('```')) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      index += 1;
+      blocks.push({ type: 'code', language, text: codeLines.join('\n') });
+      continue;
+    }
+
+    if (trimmed === '$$') {
+      const mathLines = [];
+      index += 1;
+      while (index < lines.length && lines[index].trim() !== '$$') {
+        mathLines.push(lines[index]);
+        index += 1;
+      }
+      index += 1;
+      blocks.push({ type: 'math', text: mathLines.join('\n') });
+      continue;
+    }
+
+    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      blocks.push({ type: 'heading', level: heading[1].length, text: heading[2] });
+      index += 1;
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(trimmed)) {
+      const items = [];
+      while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^[-*]\s+/, ''));
+        index += 1;
+      }
+      blocks.push({ type: 'list', items });
+      continue;
+    }
+
+    if (trimmed.startsWith('>')) {
+      const quotes = [];
+      while (index < lines.length && lines[index].trim().startsWith('>')) {
+        quotes.push(lines[index].trim().replace(/^>\s?/, ''));
+        index += 1;
+      }
+      blocks.push({ type: 'quote', text: quotes.join(' ') });
+      continue;
+    }
+
+    const paragraph = [trimmed];
+    index += 1;
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !lines[index].trim().startsWith('```') &&
+      lines[index].trim() !== '$$' &&
+      !/^(#{1,3})\s+/.test(lines[index].trim()) &&
+      !/^[-*]\s+/.test(lines[index].trim()) &&
+      !lines[index].trim().startsWith('>')
+    ) {
+      paragraph.push(lines[index].trim());
+      index += 1;
+    }
+    blocks.push({ type: 'paragraph', text: paragraph.join(' ') });
+  }
+
+  return blocks;
+}
+
+function renderMarkdownBlock(block, index) {
+  if (block.type === 'heading') {
+    const HeadingTag = block.level === 1 ? 'h2' : block.level === 2 ? 'h3' : 'h4';
+    return <HeadingTag key={index}>{renderInlineMarkdown(block.text)}</HeadingTag>;
+  }
+  if (block.type === 'code') {
+    return (
+      <pre className="markdown-code" key={index}>
+        {block.language && <span>{block.language}</span>}
+        <code>{block.text}</code>
+      </pre>
+    );
+  }
+  if (block.type === 'math') {
+    return <pre className="markdown-math" key={index}>{block.text}</pre>;
+  }
+  if (block.type === 'list') {
+    return (
+      <ul key={index}>
+        {block.items.map((item, itemIndex) => (
+          <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
+        ))}
+      </ul>
+    );
+  }
+  if (block.type === 'quote') {
+    return <blockquote key={index}>{renderInlineMarkdown(block.text)}</blockquote>;
+  }
+  return <p key={index}>{renderInlineMarkdown(block.text)}</p>;
+}
+
+function renderInlineMarkdown(text) {
+  const parts = [];
+  const pattern = /(\$[^$]+\$|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    const value = match[0];
+    if (value.startsWith('$')) {
+      parts.push(<span className="inline-math" key={parts.length}>{value.slice(1, -1)}</span>);
+    } else if (value.startsWith('`')) {
+      parts.push(<code key={parts.length}>{value.slice(1, -1)}</code>);
+    } else if (value.startsWith('**')) {
+      parts.push(<strong key={parts.length}>{value.slice(2, -2)}</strong>);
+    } else {
+      parts.push(<em key={parts.length}>{value.slice(1, -1)}</em>);
+    }
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
 function commentDisplayUnits(comment) {
   const length = Math.max(1, (comment.content || '').length);
   return Math.min(COMMENT_PAGE_UNITS, Math.max(1, Math.ceil(length / COMMENT_UNIT_CHARS)));
