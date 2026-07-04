@@ -51,6 +51,7 @@ Copy-Item .env.example .env
 
 ```text
 AUTH_SECRET=换成你自己的随机字符串
+ADMIN_SETUP_TOKEN=换成只有你知道的管理员初始化密钥
 GITHUB_CLIENT_ID=你的 GitHub OAuth Client ID
 GITHUB_CLIENT_SECRET=你的 GitHub OAuth Client Secret
 GITHUB_OAUTH_CALLBACK_URL=http://127.0.0.1:8000/api/auth/github/callback
@@ -204,7 +205,7 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/health'
 http://127.0.0.1:8080
 ```
 
-首次使用新的数据库时，进入“登录”页面选择“初始化管理员”，然后进入“管理”页面发布、编辑或删除文章。
+首次使用新的数据库时，先在 `.env` 中设置 `ADMIN_SETUP_TOKEN`，再进入“登录”页面选择“初始化管理员”，填写初始化密钥后进入“管理”页面发布、编辑或删除文章。
 
 ## 9. 和云服务器部署的关系
 

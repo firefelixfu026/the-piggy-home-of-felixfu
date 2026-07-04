@@ -1,3 +1,4 @@
+import hmac
 import os
 import re
 from datetime import datetime
@@ -28,6 +29,7 @@ from app.seed import REACTION_TYPES, seed_database
 
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173").rstrip("/")
+ADMIN_SETUP_TOKEN = os.getenv("ADMIN_SETUP_TOKEN", "").strip()
 
 
 app = FastAPI(title="FelixFu Blog API", version="0.8.0")
@@ -92,6 +94,7 @@ class RegisterIn(BaseModel):
     email: str
     password: str
     displayName: str = "Felix Fu"
+    setupToken: str = ""
 
 
 class LoginIn(BaseModel):
@@ -179,15 +182,17 @@ def create_reaction(article_id: str, reaction: ReactionIn, db: Session = Depends
 
 @app.post("/api/auth/register")
 def register_admin(payload: RegisterIn, db: Session = Depends(get_db)) -> dict:
+    if db.scalar(select(User.id).where(User.role == "admin")):
+        raise HTTPException(status_code=403, detail="Admin account is already initialized")
+
+    _verify_admin_setup_token(payload.setupToken)
+
     email = _normalize_email(payload.email)
     password = _validate_password(payload.password)
     display_name = payload.displayName.strip() or "Felix Fu"
 
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(status_code=409, detail="Email is already registered")
-
-    if db.scalar(select(User.id).where(User.role == "admin")):
-        raise HTTPException(status_code=403, detail="Admin account is already initialized")
 
     user = User(
         email=email,
@@ -445,6 +450,12 @@ def _required_text(value: str, message: str) -> str:
         raise HTTPException(status_code=400, detail=message)
     return cleaned
 
+
+def _verify_admin_setup_token(value: str) -> None:
+    if not ADMIN_SETUP_TOKEN:
+        raise HTTPException(status_code=403, detail="Admin setup is disabled")
+    if not hmac.compare_digest(value.strip(), ADMIN_SETUP_TOKEN):
+        raise HTTPException(status_code=403, detail="Invalid admin setup token")
 
 def _normalize_email(value: str) -> str:
     email = value.strip().lower()

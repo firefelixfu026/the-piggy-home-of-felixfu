@@ -239,6 +239,7 @@ nano .env
 APP_ENV=production
 FRONTEND_ORIGIN=https://www.example.com
 AUTH_SECRET=换成足够长的随机字符串
+ADMIN_SETUP_TOKEN=换成只有你知道的管理员初始化密钥
 AUTH_TOKEN_TTL_SECONDS=604800
 GITHUB_CLIENT_ID=新的 GitHub OAuth Client ID
 GITHUB_CLIENT_SECRET=新的 GitHub OAuth Client Secret
@@ -251,6 +252,7 @@ GITHUB_ADMIN_EMAILS=
 
 - 正式上线前建议重新生成 GitHub OAuth Client Secret。
 - `.env` 不要提交到 GitHub。
+- `ADMIN_SETUP_TOKEN` 只用于第一次初始化管理员，不要公开给访客。
 - `FRONTEND_ORIGIN` 和 `GITHUB_OAUTH_CALLBACK_URL` 要与正式域名一致。
 
 ## 6. 启动 Docker Compose
@@ -559,12 +561,3 @@ v0.9.0 可以认为完成，当以下项目都通过：
 - `https://正式域名` 可以访问博客。
 - GitHub OAuth 登录回调正常。
 - 管理员可以登录后台并发布文章。
-
-
-
-
-
-
-
-
-

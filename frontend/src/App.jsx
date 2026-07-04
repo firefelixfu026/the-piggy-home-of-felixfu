@@ -74,7 +74,8 @@ function App() {
   const [authForm, setAuthForm] = useState({
     email: '',
     password: '',
-    displayName: 'Felix Fu'
+    displayName: 'Felix Fu',
+    setupToken: ''
   });
   const [authMessage, setAuthMessage] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
@@ -205,7 +206,7 @@ function App() {
     const payload = {
       email: authForm.email,
       password: authForm.password,
-      ...(authMode === 'register' ? { displayName: authForm.displayName } : {})
+      ...(authMode === 'register' ? { displayName: authForm.displayName, setupToken: authForm.setupToken } : {})
     };
 
     try {
@@ -949,15 +950,27 @@ function LoginWorkspace({
         </div>
 
         {authMode === 'register' && (
-          <label>
-            <span>显示名称</span>
-            <input
-              value={authForm.displayName}
-              onChange={(event) => updateAuthForm('displayName', event.target.value)}
-              placeholder="Felix Fu"
-              required
-            />
-          </label>
+          <>
+            <label>
+              <span>显示名称</span>
+              <input
+                value={authForm.displayName}
+                onChange={(event) => updateAuthForm('displayName', event.target.value)}
+                placeholder="Felix Fu"
+                required
+              />
+            </label>
+            <label>
+              <span>初始化密钥</span>
+              <input
+                type="password"
+                value={authForm.setupToken}
+                onChange={(event) => updateAuthForm('setupToken', event.target.value)}
+                placeholder="服务器 ADMIN_SETUP_TOKEN"
+                required
+              />
+            </label>
+          </>
         )}
 
         <label>
