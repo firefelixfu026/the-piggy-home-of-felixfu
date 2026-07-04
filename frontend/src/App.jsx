@@ -68,6 +68,7 @@ function App() {
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [adminMessage, setAdminMessage] = useState('');
   const [adminComments, setAdminComments] = useState([]);
+  const [adminCommentPage, setAdminCommentPage] = useState(0);
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [isSavingArticle, setIsSavingArticle] = useState(false);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
@@ -540,6 +541,7 @@ function App() {
       }
 
       setAdminComments(await response.json());
+      setAdminCommentPage(0);
     } catch {
       setAdminMessage('后端服务不可用，无法加载评论');
     } finally {
@@ -693,6 +695,8 @@ function App() {
             startEditingArticle={startEditingArticle}
             deleteArticle={deleteArticle}
             adminComments={adminComments}
+            adminCommentPage={adminCommentPage}
+            setAdminCommentPage={setAdminCommentPage}
             isLoadingAdminComments={isLoadingAdminComments}
             refreshAdminComments={refreshAdminComments}
             deleteAdminComment={deleteAdminComment}
@@ -1180,12 +1184,21 @@ function AdminWorkspace({
   startEditingArticle,
   deleteArticle,
   adminComments,
+  adminCommentPage,
+  setAdminCommentPage,
   isLoadingAdminComments,
   refreshAdminComments,
   deleteAdminComment,
   currentUser,
   logout
 }) {
+  const adminCommentPageGroups = paginateComments(adminComments);
+  const currentAdminCommentPage = Math.min(
+    adminCommentPage,
+    Math.max(adminCommentPageGroups.length - 1, 0)
+  );
+  const visibleAdminComments = adminCommentPageGroups[currentAdminCommentPage] || [];
+
   return (
     <section className="workspace">
       <div className="section-heading">
@@ -1338,7 +1351,7 @@ function AdminWorkspace({
             {adminComments.length === 0 ? (
               <p className="empty-state">暂无评论</p>
             ) : (
-              adminComments.map((comment) => (
+              visibleAdminComments.map((comment) => (
                 <article className="manager-row comment-row" key={comment.id}>
                   <div>
                     <div className="comment-meta-line">
@@ -1358,6 +1371,28 @@ function AdminWorkspace({
               ))
             )}
           </div>
+
+          {adminCommentPageGroups.length > 1 && (
+            <div className="comment-pagination manager-pagination">
+              <button
+                type="button"
+                disabled={currentAdminCommentPage === 0}
+                onClick={() => setAdminCommentPage(Math.max(0, currentAdminCommentPage - 1))}
+              >
+                上一页
+              </button>
+              <span>{currentAdminCommentPage + 1} / {adminCommentPageGroups.length}</span>
+              <button
+                type="button"
+                disabled={currentAdminCommentPage >= adminCommentPageGroups.length - 1}
+                onClick={() =>
+                  setAdminCommentPage(Math.min(adminCommentPageGroups.length - 1, currentAdminCommentPage + 1))
+                }
+              >
+                下一页
+              </button>
+            </div>
+          )}
         </section>
       </div>
     </section>

@@ -819,10 +819,15 @@ h3 {
 .manager-list {
   display: grid;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .manager-row {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: start;
@@ -832,22 +837,36 @@ h3 {
   background: #f8fafc;
 }
 
+.manager-row > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .manager-row h3 {
   margin-bottom: 6px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .manager-row p {
   color: #5b6878;
   line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .comment-manager {
   grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .comment-row h3 {
   color: #334155;
   font-size: 15px;
+}
+
+.manager-pagination {
+  margin-top: 12px;
 }
 
 .comment-meta-line {
