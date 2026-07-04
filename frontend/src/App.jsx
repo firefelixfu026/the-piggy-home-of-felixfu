@@ -25,6 +25,8 @@ import {
   X,
   Zap
 } from 'lucide-react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { aiNews as fallbackNews, articles as fallbackArticles, gameModule, profile as fallbackProfile } from './data.js';
 
 const createEmptyArticleForm = () => ({
@@ -1043,15 +1045,55 @@ function parseMarkdownBlocks(content) {
       continue;
     }
 
-    if (trimmed === '$$') {
-      const mathLines = [];
+    if (trimmed.startsWith('$$')) {
+      let mathText = trimmed.slice(2).trim();
+      if (mathText.endsWith('$$') && mathText.length > 2) {
+        blocks.push({ type: 'math', text: mathText.slice(0, -2).trim() });
+        index += 1;
+        continue;
+      }
+
+      const mathLines = mathText ? [mathText] : [];
       index += 1;
-      while (index < lines.length && lines[index].trim() !== '$$') {
-        mathLines.push(lines[index]);
+      while (index < lines.length) {
+        const mathLine = lines[index];
+        const mathTrimmed = mathLine.trim();
+        if (mathTrimmed.endsWith('$$')) {
+          const closingText = mathLine.replace(/\$\$\s*$/, '').trimEnd();
+          if (closingText) mathLines.push(closingText);
+          index += 1;
+          break;
+        }
+        mathLines.push(mathLine);
         index += 1;
       }
+      blocks.push({ type: 'math', text: mathLines.join('\n').trim() });
+      continue;
+    }
+
+    if (trimmed.startsWith('\\[')) {
+      let mathText = trimmed.slice(2).trim();
+      if (mathText.endsWith('\\]')) {
+        blocks.push({ type: 'math', text: mathText.slice(0, -2).trim() });
+        index += 1;
+        continue;
+      }
+
+      const mathLines = mathText ? [mathText] : [];
       index += 1;
-      blocks.push({ type: 'math', text: mathLines.join('\n') });
+      while (index < lines.length) {
+        const mathLine = lines[index];
+        const mathTrimmed = mathLine.trim();
+        if (mathTrimmed.endsWith('\\]')) {
+          const closingText = mathLine.replace(/\\\]\s*$/, '').trimEnd();
+          if (closingText) mathLines.push(closingText);
+          index += 1;
+          break;
+        }
+        mathLines.push(mathLine);
+        index += 1;
+      }
+      blocks.push({ type: 'math', text: mathLines.join('\n').trim() });
       continue;
     }
 
@@ -1088,7 +1130,8 @@ function parseMarkdownBlocks(content) {
       index < lines.length &&
       lines[index].trim() &&
       !lines[index].trim().startsWith('```') &&
-      lines[index].trim() !== '$$' &&
+      !lines[index].trim().startsWith('$$') &&
+      !lines[index].trim().startsWith('\\[') &&
       !/^(#{1,3})\s+/.test(lines[index].trim()) &&
       !/^[-*]\s+/.test(lines[index].trim()) &&
       !lines[index].trim().startsWith('>')
@@ -1116,7 +1159,7 @@ function renderMarkdownBlock(block, index) {
     );
   }
   if (block.type === 'math') {
-    return <pre className="markdown-math" key={index}>{block.text}</pre>;
+    return <div className="markdown-math" key={index}>{renderMathExpression(block.text, true)}</div>;
   }
   if (block.type === 'list') {
     return (
@@ -1133,9 +1176,27 @@ function renderMarkdownBlock(block, index) {
   return <p key={index}>{renderInlineMarkdown(block.text)}</p>;
 }
 
+function renderMathExpression(source, displayMode = false, key) {
+  const Tag = displayMode ? 'div' : 'span';
+  const className = displayMode ? 'math-render math-render-block' : 'math-render math-render-inline';
+
+  try {
+    const html = katex.renderToString(source, {
+      displayMode,
+      throwOnError: false,
+      strict: false,
+      trust: false,
+      output: 'htmlAndMathml'
+    });
+    return <Tag className={className} key={key} dangerouslySetInnerHTML={{ __html: html }} />;
+  } catch {
+    return <code className={className} key={key}>{source}</code>;
+  }
+}
+
 function renderInlineMarkdown(text) {
   const parts = [];
-  const pattern = /(\$[^$]+\$|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const pattern = /(\\\([^\n]+?\\\)|\$[^$\n]+\$|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
   let lastIndex = 0;
   let match;
 
@@ -1146,7 +1207,9 @@ function renderInlineMarkdown(text) {
 
     const value = match[0];
     if (value.startsWith('$')) {
-      parts.push(<span className="inline-math" key={parts.length}>{value.slice(1, -1)}</span>);
+      parts.push(renderMathExpression(value.slice(1, -1), false, parts.length));
+    } else if (value.startsWith('\\(')) {
+      parts.push(renderMathExpression(value.slice(2, -2), false, parts.length));
     } else if (value.startsWith('`')) {
       parts.push(<code key={parts.length}>{value.slice(1, -1)}</code>);
     } else if (value.startsWith('**')) {
@@ -1532,6 +1595,16 @@ function AdminWorkspace({
               required
             />
           </label>
+
+          {articleForm.content.trim() && (
+            <section className="article-preview-panel" aria-label="文章预览">
+              <div className="admin-panel-heading">
+                <h3>正文预览</h3>
+                <span>Markdown / LaTeX</span>
+              </div>
+              <MarkdownContent content={articleForm.content} title={articleForm.title || '文章预览'} />
+            </section>
+          )}
 
           <div className="admin-form-grid">
             <label>
