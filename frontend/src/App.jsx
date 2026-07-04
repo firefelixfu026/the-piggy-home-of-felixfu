@@ -48,6 +48,7 @@ const adminNavItem = { id: 'admin', label: '管理', icon: FilePenLine };
 const COMMENT_MAX_LENGTH = 300;
 const COMMENT_PAGE_UNITS = 5;
 const COMMENT_UNIT_CHARS = 60;
+const ADMIN_COMMENTS_PER_PAGE = 5;
 const emptyReactionState = { like: false, favorite: false, downvote: false, question: false };
 
 function App() {
@@ -956,6 +957,16 @@ function paginateComments(commentList) {
 
   return pages;
 }
+
+function paginateFixedSize(items, pageSize) {
+  if (!items.length) return [[]];
+
+  const pages = [];
+  for (let index = 0; index < items.length; index += pageSize) {
+    pages.push(items.slice(index, index + pageSize));
+  }
+  return pages;
+}
 function AiWorkspace({ news, articles }) {
   return (
     <section className="workspace">
@@ -1192,7 +1203,7 @@ function AdminWorkspace({
   currentUser,
   logout
 }) {
-  const adminCommentPageGroups = paginateComments(adminComments);
+  const adminCommentPageGroups = paginateFixedSize(adminComments, ADMIN_COMMENTS_PER_PAGE);
   const currentAdminCommentPage = Math.min(
     adminCommentPage,
     Math.max(adminCommentPageGroups.length - 1, 0)
