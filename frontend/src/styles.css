@@ -297,6 +297,80 @@ h3 {
   background: #ffffff;
 }
 
+.popular-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.popular-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.popular-panel-heading h2 {
+  margin-bottom: 0;
+  font-size: 20px;
+}
+
+.popular-panel-heading span {
+  color: #6a7685;
+  font-size: 13px;
+}
+
+.popular-list {
+  display: grid;
+  gap: 8px;
+}
+
+.popular-list button {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  color: #102033;
+  background: #f8fafc;
+  text-align: left;
+}
+
+.popular-list button:hover {
+  border-color: #1f7a6d;
+  background: #edf8f4;
+}
+
+.popular-list strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #1f7a6d;
+  font-size: 13px;
+}
+
+.popular-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 800;
+}
+
+.popular-list em {
+  color: #6a7685;
+  font-size: 13px;
+  font-style: normal;
+}
+
 .interest-row span,
 .tag-row span {
   display: inline-flex;
@@ -581,8 +655,14 @@ h3 {
 
 .article-meta {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.article-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .tag-button {

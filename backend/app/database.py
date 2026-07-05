@@ -40,6 +40,8 @@ def _ensure_schema_updates() -> None:
             connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
         if "articles" in table_names and "status" not in article_columns:
             connection.execute(text("ALTER TABLE articles ADD COLUMN status VARCHAR(20) DEFAULT 'published' NOT NULL"))
+        if "articles" in table_names and "view_count" not in article_columns:
+            connection.execute(text("ALTER TABLE articles ADD COLUMN view_count INTEGER DEFAULT 0 NOT NULL"))
         if "comments" in table_names and "status" not in comment_columns:
             connection.execute(text("ALTER TABLE comments ADD COLUMN status VARCHAR(20) DEFAULT 'approved' NOT NULL"))
 

@@ -4,6 +4,7 @@ import {
   BookOpen,
   Bot,
   CheckCircle2,
+  Eye,
   ExternalLink,
   FilePenLine,
   Gamepad2,
@@ -258,6 +259,43 @@ function App() {
 
   function showLoginRequired(action) {
     setInteractionMessage(`请先登录后再${action}`);
+  }
+
+  function syncArticleState(article) {
+    setArticles((current) => current.map((item) => (item.id === article.id ? article : item)));
+    setComments((current) => ({
+      ...current,
+      [article.id]: article.comments || []
+    }));
+    setReactionCounts((current) => ({
+      ...current,
+      [article.id]: {
+        like: article.reactions?.like || 0,
+        favorite: article.reactions?.favorite || 0,
+        downvote: article.reactions?.downvote || 0,
+        question: article.reactions?.question || 0
+      }
+    }));
+    setReactions((current) => ({
+      ...current,
+      [article.id]: {
+        ...emptyReactionState,
+        ...(article.viewerReactions || {})
+      }
+    }));
+  }
+
+  async function openArticle(articleId) {
+    setSelectedArticleId(articleId);
+    try {
+      const response = await fetch(`/api/articles/${articleId}`, {
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) return;
+      syncArticleState(await response.json());
+    } catch {
+      setInteractionMessage('后端服务不可用，阅读次数暂时无法更新');
+    }
   }
 
   function updateAuthForm(field, value) {
@@ -721,6 +759,7 @@ function App() {
             setSelectedTag={setSelectedTag}
             selectedArticleId={selectedArticleId}
             setSelectedArticleId={setSelectedArticleId}
+            openArticle={openArticle}
             reactions={reactions}
             reactionCounts={reactionCounts}
             toggleReaction={toggleReaction}
@@ -849,6 +888,7 @@ function ArticleWorkspace({
   setSelectedArchive,
   selectedArticleId,
   setSelectedArticleId,
+  openArticle,
   reactions,
   reactionCounts,
   toggleReaction,
@@ -862,6 +902,10 @@ function ArticleWorkspace({
   setCommentPages
 }) {
   const selectedArticle = articles.find((article) => article.id === selectedArticleId) || null;
+  const popularArticles = [...articles]
+    .filter((article) => Number(article.viewCount || 0) > 0)
+    .sort((first, second) => Number(second.viewCount || 0) - Number(first.viewCount || 0))
+    .slice(0, 5);
 
   if (selectedArticle) {
     return (
@@ -923,6 +967,24 @@ function ArticleWorkspace({
         ))}
       </div>
 
+      {popularArticles.length > 0 && (
+        <section className="popular-panel" aria-label="热门文章排行">
+          <div className="popular-panel-heading">
+            <h2>热门文章</h2>
+            <span>按阅读次数排序</span>
+          </div>
+          <div className="popular-list">
+            {popularArticles.map((article, index) => (
+              <button type="button" key={article.id} onClick={() => openArticle(article.id)}>
+                <strong>{index + 1}</strong>
+                <span>{article.title}</span>
+                <em>{article.viewCount || 0} 次阅读</em>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {interactionMessage && <p className="interaction-message">{interactionMessage}</p>}
 
       {articles.length === 0 ? (
@@ -934,6 +996,7 @@ function ArticleWorkspace({
               <div className="article-meta">
                 <span>{article.date}</span>
                 <span>{article.readTime}</span>
+                <span><Eye size={15} /> {article.viewCount || 0}</span>
               </div>
               <h2>{article.title}</h2>
               <p className="article-summary">{article.summary}</p>
@@ -942,7 +1005,7 @@ function ArticleWorkspace({
                   <span key={tag}>{tag}</span>
                 ))}
               </div>
-              <button className="read-more-button" type="button" onClick={() => setSelectedArticleId(article.id)}>
+              <button className="read-more-button" type="button" onClick={() => openArticle(article.id)}>
                 阅读全文
               </button>
             </article>
@@ -989,6 +1052,7 @@ function ArticleDetail({
         <div className="article-meta">
           <span>{article.date}</span>
           <span>{article.readTime}</span>
+          <span><Eye size={15} /> {article.viewCount || 0}</span>
         </div>
         <h1>{article.title}</h1>
         <p className="article-summary">{article.summary}</p>

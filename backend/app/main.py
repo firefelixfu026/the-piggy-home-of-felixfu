@@ -160,6 +160,10 @@ def get_article(
 ) -> dict:
     article = _get_article_or_404(db, article_id)
     _ensure_article_visible(article, current_user)
+    if not current_user or current_user.role != "admin":
+        article.view_count = (article.view_count or 0) + 1
+        db.commit()
+        db.refresh(article)
     return _article_to_dict(article, current_user)
 
 
@@ -462,6 +466,7 @@ def _article_to_dict(article: Article, current_user: User | None = None) -> dict
         "date": article.date,
         "readTime": article.read_time,
         "status": article.status,
+        "viewCount": article.view_count or 0,
         "comments": [_comment_to_dict(comment) for comment in _visible_comments(article, current_user)],
         "reactions": _reaction_counts(article),
         "viewerReactions": _viewer_reactions(article, current_user),

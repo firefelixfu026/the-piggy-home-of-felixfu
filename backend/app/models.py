@@ -39,6 +39,7 @@ class Article(Base):
     date: Mapped[str] = mapped_column(String(20), nullable=False)
     read_time: Mapped[str] = mapped_column(String(30), default="3 min")
     status: Mapped[str] = mapped_column(String(20), default="published")
+    view_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
