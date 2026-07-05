@@ -90,6 +90,7 @@ class ArticleIn(BaseModel):
     tags: list[str] = []
     date: str | None = None
     readTime: str = "3 min"
+    status: Literal["published", "draft"] = "published"
 
 
 class RegisterIn(BaseModel):
@@ -129,6 +130,8 @@ def list_articles(
     current_user: User | None = Depends(get_optional_current_user),
 ) -> list[dict]:
     articles = _load_articles(db)
+    if not current_user or current_user.role != "admin":
+        articles = [article for article in articles if article.status == "published"]
     if not q:
         return [_article_to_dict(article, current_user) for article in articles]
 
@@ -156,6 +159,7 @@ def get_article(
     current_user: User | None = Depends(get_optional_current_user),
 ) -> dict:
     article = _get_article_or_404(db, article_id)
+    _ensure_article_visible(article, current_user)
     return _article_to_dict(article, current_user)
 
 
@@ -167,6 +171,7 @@ def create_comment(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     article = _get_article_or_404(db, article_id)
+    _ensure_article_visible(article, current_user)
     content = comment.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Comment content is required")
@@ -194,6 +199,7 @@ def create_reaction(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     article = _get_article_or_404(db, article_id)
+    _ensure_article_visible(article, current_user)
     existing = db.scalar(
         select(UserReaction).where(
             UserReaction.user_id == current_user.id,
@@ -221,7 +227,6 @@ def create_reaction(
         "reactions": _reaction_counts(article),
         "viewerReactions": _viewer_reactions(article, current_user),
     }
-
 
 @app.post("/api/auth/register")
 def register_admin(payload: RegisterIn, db: Session = Depends(get_db)) -> dict:
@@ -310,6 +315,7 @@ def create_admin_article(
         content=_required_text(payload.content, "Article content is required"),
         date=(payload.date or datetime.utcnow().date().isoformat()).strip(),
         read_time=(payload.readTime or "3 min").strip(),
+        status=payload.status,
     )
     article.tags = [_get_or_create_tag(db, tag_name) for tag_name in _clean_tags(payload.tags)]
     article.reactions = [
@@ -334,6 +340,7 @@ def update_admin_article(
     article.content = _required_text(payload.content, "Article content is required")
     article.date = (payload.date or article.date).strip()
     article.read_time = (payload.readTime or article.read_time).strip()
+    article.status = payload.status
     article.tags = [_get_or_create_tag(db, tag_name) for tag_name in _clean_tags(payload.tags)]
     db.commit()
     return _article_to_dict(_get_article_or_404(db, article.id), current_user)
@@ -433,11 +440,19 @@ def _article_to_dict(article: Article, current_user: User | None = None) -> dict
         "tags": [tag.name for tag in sorted(article.tags, key=lambda item: item.name)],
         "date": article.date,
         "readTime": article.read_time,
+        "status": article.status,
         "comments": [_comment_to_dict(comment) for comment in article.comments],
         "reactions": _reaction_counts(article),
         "viewerReactions": _viewer_reactions(article, current_user),
     }
 
+
+def _ensure_article_visible(article: Article, current_user: User | None) -> None:
+    if article.status == "published":
+        return
+    if current_user and current_user.role == "admin":
+        return
+    raise HTTPException(status_code=404, detail="Article not found")
 
 def _comment_to_dict(comment: Comment) -> dict:
     return {

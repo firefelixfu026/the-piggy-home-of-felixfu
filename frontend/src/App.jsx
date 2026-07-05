@@ -35,7 +35,8 @@ const createEmptyArticleForm = () => ({
   content: '',
   tags: '',
   date: new Date().toISOString().slice(0, 10),
-  readTime: '3 min'
+  readTime: '3 min',
+  status: 'published'
 });
 
 const publicNavItems = [
@@ -474,7 +475,8 @@ function App() {
       content: article.content,
       tags: article.tags.join(', '),
       date: article.date,
-      readTime: article.readTime
+      readTime: article.readTime,
+      status: article.status || 'published'
     });
   }
 
@@ -498,7 +500,8 @@ function App() {
         .map((tag) => tag.trim())
         .filter(Boolean),
       date: articleForm.date,
-      readTime: articleForm.readTime
+      readTime: articleForm.readTime,
+      status: articleForm.status
     };
 
     try {
@@ -1723,6 +1726,16 @@ function AdminWorkspace({
                 placeholder="3 min"
               />
             </label>
+            <label>
+              <span>状态</span>
+              <select
+                value={articleForm.status}
+                onChange={(event) => updateArticleForm('status', event.target.value)}
+              >
+                <option value="published">已发布</option>
+                <option value="draft">草稿</option>
+              </select>
+            </label>
           </div>
 
           <div className="admin-actions">
@@ -1749,7 +1762,10 @@ function AdminWorkspace({
             {articles.map((article) => (
               <article className="manager-row" key={article.id}>
                 <div>
-                  <h3>{article.title}</h3>
+                  <div className="manager-title-line">
+                    <h3>{article.title}</h3>
+                    <span className={article.status === 'draft' ? 'status-badge draft' : 'status-badge'}>{article.status === 'draft' ? '草稿' : '已发布'}</span>
+                  </div>
                   <p>{article.summary}</p>
                   <div className="tag-row">
                     {article.tags.map((tag) => (
