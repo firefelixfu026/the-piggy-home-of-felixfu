@@ -53,11 +53,29 @@ const COMMENT_PAGE_UNITS = 5;
 const COMMENT_UNIT_CHARS = 60;
 const ADMIN_COMMENTS_PER_PAGE = 5;
 const emptyReactionState = { like: false, favorite: false, downvote: false, question: false };
+const ALL_FILTER = '全部';
+const ALL_ARCHIVE = '全部';
+
+function getArticleMonth(date) {
+  if (!date) return '';
+  const normalized = String(date).replace(/\//g, '-');
+  const match = normalized.match(/^(\d{4})-(\d{1,2})/);
+  if (!match) return '';
+  return `${match[1]}-${match[2].padStart(2, '0')}`;
+}
+
+function formatArchiveLabel(month) {
+  if (month === ALL_ARCHIVE) return '全部月份';
+  const [year, monthValue] = month.split('-');
+  return `${year}年${Number(monthValue)}月`;
+}
+
 
 function App() {
   const [activeView, setActiveView] = useState('overview');
   const [query, setQuery] = useState('');
-  const [selectedTag, setSelectedTag] = useState('全部');
+  const [selectedTag, setSelectedTag] = useState(ALL_FILTER);
+  const [selectedArchive, setSelectedArchive] = useState(ALL_ARCHIVE);
   const [profile, setProfile] = useState(fallbackProfile);
   const [articles, setArticles] = useState(fallbackArticles);
   const [aiNews, setAiNews] = useState(fallbackNews);
@@ -297,18 +315,35 @@ function App() {
 
   const tags = useMemo(() => {
     const uniqueTags = new Set(articles.flatMap((article) => article.tags));
-    return ['全部', ...uniqueTags];
+    return [ALL_FILTER, ...uniqueTags];
+  }, [articles]);
+
+  const archiveOptions = useMemo(() => {
+    const counts = new Map();
+    articles.forEach((article) => {
+      const month = getArticleMonth(article.date);
+      if (!month) return;
+      counts.set(month, (counts.get(month) || 0) + 1);
+    });
+
+    return [
+      { value: ALL_ARCHIVE, label: formatArchiveLabel(ALL_ARCHIVE), count: articles.length },
+      ...Array.from(counts.entries())
+        .sort(([left], [right]) => right.localeCompare(left))
+        .map(([value, count]) => ({ value, label: formatArchiveLabel(value), count }))
+    ];
   }, [articles]);
 
   const filteredArticles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     return articles.filter((article) => {
-      const tagMatched = selectedTag === '全部' || article.tags.includes(selectedTag);
+      const tagMatched = selectedTag === ALL_FILTER || article.tags.includes(selectedTag);
+      const archiveMatched = selectedArchive === ALL_ARCHIVE || getArticleMonth(article.date) === selectedArchive;
       const text = `${article.title} ${article.summary} ${article.content} ${article.tags.join(' ')}`.toLowerCase();
-      return tagMatched && (!normalizedQuery || text.includes(normalizedQuery));
+      return tagMatched && archiveMatched && (!normalizedQuery || text.includes(normalizedQuery));
     });
-  }, [articles, query, selectedTag]);
+  }, [articles, query, selectedTag, selectedArchive]);
 
   async function toggleReaction(articleId, type) {
     if (!authToken) {
@@ -776,6 +811,9 @@ function ArticleWorkspace({
   tags,
   selectedTag,
   setSelectedTag,
+  archiveOptions,
+  selectedArchive,
+  setSelectedArchive,
   selectedArticleId,
   setSelectedArticleId,
   reactions,
@@ -835,32 +873,52 @@ function ArticleWorkspace({
         ))}
       </div>
 
-      {interactionMessage && <p className="interaction-message">{interactionMessage}</p>}
-
-      <div className="article-list">
-        {articles.map((article) => (
-          <article className="article-card article-preview" key={article.id}>
-            <div className="article-meta">
-              <span>{article.date}</span>
-              <span>{article.readTime}</span>
-            </div>
-            <h2>{article.title}</h2>
-            <p className="article-summary">{article.summary}</p>
-            <div className="tag-row">
-              {article.tags.map((tag) => (
-                <span key={tag}>{tag}</span>
-              ))}
-            </div>
-            <button className="read-more-button" type="button" onClick={() => setSelectedArticleId(article.id)}>
-              阅读全文
-            </button>
-          </article>
+      <div className="archive-filter" aria-label="文章月份归档">
+        {archiveOptions.map((option) => (
+          <button
+            key={option.value}
+            className={selectedArchive === option.value ? 'archive-button active' : 'archive-button'}
+            type="button"
+            onClick={() => {
+              setSelectedArchive(option.value);
+              setSelectedArticleId(null);
+            }}
+          >
+            <span>{option.label}</span>
+            <strong>{option.count}</strong>
+          </button>
         ))}
       </div>
+
+      {interactionMessage && <p className="interaction-message">{interactionMessage}</p>}
+
+      {articles.length === 0 ? (
+        <p className="empty-state">没有找到符合条件的文章</p>
+      ) : (
+        <div className="article-list">
+          {articles.map((article) => (
+            <article className="article-card article-preview" key={article.id}>
+              <div className="article-meta">
+                <span>{article.date}</span>
+                <span>{article.readTime}</span>
+              </div>
+              <h2>{article.title}</h2>
+              <p className="article-summary">{article.summary}</p>
+              <div className="tag-row">
+                {article.tags.map((tag) => (
+                  <span key={tag}>{tag}</span>
+                ))}
+              </div>
+              <button className="read-more-button" type="button" onClick={() => setSelectedArticleId(article.id)}>
+                阅读全文
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
-
 function ArticleDetail({
   article,
   reactions,
@@ -1009,6 +1067,40 @@ function ArticleDetail({
   );
 }
 
+function getHeadingId(text, index) {
+  const compact = String(text)
+    .toLowerCase()
+    .replace(/[`*_{}[\]().,，。！？!?:：;；/\\]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  return `heading-${index}-${compact || 'section'}`;
+}
+
+function getMarkdownHeadings(content) {
+  return parseMarkdownBlocks(content)
+    .map((block, index) => ({ ...block, index }))
+    .filter((block) => block.type === 'heading')
+    .map((block) => ({
+      id: getHeadingId(block.text, block.index),
+      level: block.level,
+      text: block.text
+    }));
+}
+
+function ArticleToc({ headings }) {
+  return (
+    <nav className="article-toc" aria-label="文章目录">
+      <div className="article-toc-heading">文章目录</div>
+      <div className="article-toc-list">
+        {headings.map((heading) => (
+          <a className={`toc-level-${heading.level}`} href={`#${heading.id}`} key={heading.id}>
+            {renderInlineMarkdown(heading.text)}
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
+}
 function MarkdownContent({ content, title }) {
   const blocks = parseMarkdownBlocks(content);
   return (
@@ -1148,7 +1240,7 @@ function parseMarkdownBlocks(content) {
 function renderMarkdownBlock(block, index) {
   if (block.type === 'heading') {
     const HeadingTag = block.level === 1 ? 'h2' : block.level === 2 ? 'h3' : 'h4';
-    return <HeadingTag key={index}>{renderInlineMarkdown(block.text)}</HeadingTag>;
+    return <HeadingTag id={getHeadingId(block.text, index)} key={index}>{renderInlineMarkdown(block.text)}</HeadingTag>;
   }
   if (block.type === 'code') {
     return (
