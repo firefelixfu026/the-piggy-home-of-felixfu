@@ -34,11 +34,14 @@ def _ensure_schema_updates() -> None:
     table_names = inspector.get_table_names()
     user_columns = {column["name"] for column in inspector.get_columns("users")}
     article_columns = {column["name"] for column in inspector.get_columns("articles")} if "articles" in table_names else set()
+    comment_columns = {column["name"] for column in inspector.get_columns("comments")} if "comments" in table_names else set()
     with engine.begin() as connection:
         if "password_hash" not in user_columns:
             connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
         if "articles" in table_names and "status" not in article_columns:
             connection.execute(text("ALTER TABLE articles ADD COLUMN status VARCHAR(20) DEFAULT 'published' NOT NULL"))
+        if "comments" in table_names and "status" not in comment_columns:
+            connection.execute(text("ALTER TABLE comments ADD COLUMN status VARCHAR(20) DEFAULT 'approved' NOT NULL"))
 
         connection.execute(
             text(

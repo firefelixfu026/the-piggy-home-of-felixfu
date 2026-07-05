@@ -183,12 +183,17 @@ def create_comment(
             article_id=article.id,
             author_name=(current_user.display_name or current_user.email or "访客").strip() or "访客",
             content=content,
+            status="pending",
         )
     )
     db.commit()
     db.refresh(article)
     article = _get_article_or_404(db, article_id)
-    return {"articleId": article_id, "comments": [_comment_to_dict(item) for item in article.comments]}
+    return {
+        "articleId": article_id,
+        "comments": [_comment_to_dict(item) for item in _public_comments(article)],
+        "message": "评论已提交，审核通过后会公开显示",
+    }
 
 
 @app.post("/api/articles/{article_id}/reaction")
@@ -386,6 +391,22 @@ def delete_admin_comment(
     return {"status": "deleted", "commentId": comment_id}
 
 
+@app.post("/api/admin/comments/{comment_id}/approve")
+def approve_admin_comment(
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
+    comment = db.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    comment.status = "approved"
+    db.commit()
+    db.refresh(comment)
+    return _admin_comment_to_dict(comment)
+
+
 @app.get("/api/ai/news")
 def get_ai_news() -> list[dict]:
     return AI_NEWS
@@ -441,7 +462,7 @@ def _article_to_dict(article: Article, current_user: User | None = None) -> dict
         "date": article.date,
         "readTime": article.read_time,
         "status": article.status,
-        "comments": [_comment_to_dict(comment) for comment in article.comments],
+        "comments": [_comment_to_dict(comment) for comment in _visible_comments(article, current_user)],
         "reactions": _reaction_counts(article),
         "viewerReactions": _viewer_reactions(article, current_user),
     }
@@ -454,11 +475,26 @@ def _ensure_article_visible(article: Article, current_user: User | None) -> None
         return
     raise HTTPException(status_code=404, detail="Article not found")
 
+
+def _visible_comments(article: Article, current_user: User | None) -> list[Comment]:
+    if current_user and current_user.role == "admin":
+        return sorted(article.comments, key=lambda item: item.created_at)
+    return _public_comments(article)
+
+
+def _public_comments(article: Article) -> list[Comment]:
+    return sorted(
+        [comment for comment in article.comments if comment.status == "approved"],
+        key=lambda item: item.created_at,
+    )
+
+
 def _comment_to_dict(comment: Comment) -> dict:
     return {
         "id": comment.id,
         "authorName": comment.author_name,
         "content": comment.content,
+        "status": comment.status,
         "createdAt": comment.created_at.isoformat(),
     }
 

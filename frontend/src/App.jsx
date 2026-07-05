@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BookOpen,
   Bot,
+  CheckCircle2,
   ExternalLink,
   FilePenLine,
   Gamepad2,
@@ -95,6 +96,7 @@ function App() {
   const [adminCommentPage, setAdminCommentPage] = useState(0);
   const [adminCommentArticleFilter, setAdminCommentArticleFilter] = useState('all');
   const [adminCommentAuthorFilter, setAdminCommentAuthorFilter] = useState('all');
+  const [adminCommentStatusFilter, setAdminCommentStatusFilter] = useState('all');
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [isSavingArticle, setIsSavingArticle] = useState(false);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
@@ -436,7 +438,7 @@ function App() {
           ...current,
           [articleId]: result.comments
         }));
-        setInteractionMessage('评论发布成功');
+        setInteractionMessage(result.message || '评论已提交，审核通过后会公开显示');
         setCommentPages((current) => ({ ...current, [articleId]: Number.MAX_SAFE_INTEGER }));
         return;
       }
@@ -617,6 +619,31 @@ function App() {
     }
   }
 
+  async function approveAdminComment(comment) {
+    try {
+      const response = await fetch(`/api/admin/comments/${comment.id}/approve`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) {
+        setAdminMessage('评论审核失败');
+        if (response.status === 401 || response.status === 403) {
+          setActiveView('login');
+        }
+        return;
+      }
+
+      const updatedComment = await response.json();
+      setAdminComments((current) =>
+        current.map((item) => (item.id === updatedComment.id ? updatedComment : item))
+      );
+      await refreshArticles();
+      setAdminMessage('评论已通过审核');
+    } catch {
+      setAdminMessage('后端服务不可用，评论审核失败');
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="博客导航">
@@ -747,8 +774,11 @@ function App() {
             setAdminCommentArticleFilter={setAdminCommentArticleFilter}
             adminCommentAuthorFilter={adminCommentAuthorFilter}
             setAdminCommentAuthorFilter={setAdminCommentAuthorFilter}
+            adminCommentStatusFilter={adminCommentStatusFilter}
+            setAdminCommentStatusFilter={setAdminCommentStatusFilter}
             isLoadingAdminComments={isLoadingAdminComments}
             refreshAdminComments={refreshAdminComments}
+            approveAdminComment={approveAdminComment}
             deleteAdminComment={deleteAdminComment}
             currentUser={currentUser}
             logout={logout}
@@ -1606,8 +1636,11 @@ function AdminWorkspace({
   setAdminCommentArticleFilter,
   adminCommentAuthorFilter,
   setAdminCommentAuthorFilter,
+  adminCommentStatusFilter,
+  setAdminCommentStatusFilter,
   isLoadingAdminComments,
   refreshAdminComments,
+  approveAdminComment,
   deleteAdminComment,
   currentUser,
   logout
@@ -1617,9 +1650,11 @@ function AdminWorkspace({
   const filteredAdminComments = adminComments.filter((comment) => {
     const articleKey = comment.articleTitle || comment.articleId || '未命名文章';
     const authorKey = comment.authorName || '访客';
+    const statusKey = comment.status || 'approved';
     return (
       (adminCommentArticleFilter === 'all' || articleKey === adminCommentArticleFilter) &&
-      (adminCommentAuthorFilter === 'all' || authorKey === adminCommentAuthorFilter)
+      (adminCommentAuthorFilter === 'all' || authorKey === adminCommentAuthorFilter) &&
+      (adminCommentStatusFilter === 'all' || statusKey === adminCommentStatusFilter)
     );
   });
   const adminCommentPageGroups = paginateFixedSize(filteredAdminComments, ADMIN_COMMENTS_PER_PAGE);
@@ -1831,6 +1866,20 @@ function AdminWorkspace({
                 ))}
               </select>
             </label>
+            <label>
+              <span>状态</span>
+              <select
+                value={adminCommentStatusFilter}
+                onChange={(event) => {
+                  setAdminCommentStatusFilter(event.target.value);
+                  setAdminCommentPage(0);
+                }}
+              >
+                <option value="all">全部状态</option>
+                <option value="pending">待审核</option>
+                <option value="approved">已通过</option>
+              </select>
+            </label>
           </div>
 
           <div className="manager-list">
@@ -1845,11 +1894,20 @@ function AdminWorkspace({
                     <div className="comment-meta-line">
                       <strong>{comment.authorName || '访客'}</strong>
                       <span>{new Date(comment.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
+                      <span className={comment.status === 'pending' ? 'status-badge pending' : 'status-badge'}>
+                        {comment.status === 'pending' ? '待审核' : '已通过'}
+                      </span>
                     </div>
                     <h3>{comment.articleTitle || comment.articleId}</h3>
                     <p>{comment.content}</p>
                   </div>
                   <div className="manager-actions">
+                    {comment.status === 'pending' && (
+                      <button type="button" onClick={() => approveAdminComment(comment)}>
+                        <CheckCircle2 size={17} />
+                        <span>通过</span>
+                      </button>
+                    )}
                     <button className="danger-button" type="button" onClick={() => deleteAdminComment(comment)}>
                       <Trash2 size={17} />
                       <span>删除</span>

@@ -74,6 +74,7 @@ class Comment(Base):
     article_id: Mapped[str] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), index=True)
     author_name: Mapped[str] = mapped_column(String(100), default="访客")
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     article: Mapped[Article] = relationship(back_populates="comments")
