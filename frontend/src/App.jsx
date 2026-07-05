@@ -757,6 +757,9 @@ function App() {
             tags={tags}
             selectedTag={selectedTag}
             setSelectedTag={setSelectedTag}
+            archiveOptions={archiveOptions}
+            selectedArchive={selectedArchive}
+            setSelectedArchive={setSelectedArchive}
             selectedArticleId={selectedArticleId}
             setSelectedArticleId={setSelectedArticleId}
             openArticle={openArticle}
@@ -879,13 +882,13 @@ function Overview({ profile, articles }) {
 }
 
 function ArticleWorkspace({
-  articles,
-  tags,
-  selectedTag,
-  setSelectedTag,
-  archiveOptions,
-  selectedArchive,
-  setSelectedArchive,
+  articles = [],
+  tags = [],
+  selectedTag = ALL_FILTER,
+  setSelectedTag = () => {},
+  archiveOptions = [],
+  selectedArchive = ALL_ARCHIVE,
+  setSelectedArchive = () => {},
   selectedArticleId,
   setSelectedArticleId,
   openArticle,
