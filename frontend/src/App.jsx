@@ -1296,6 +1296,18 @@ function parseMarkdownBlocks(content) {
       continue;
     }
 
+    const image = trimmed.match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)$/);
+    if (image) {
+      blocks.push({
+        type: 'image',
+        alt: image[1],
+        src: image[2],
+        title: image[3] || image[1]
+      });
+      index += 1;
+      continue;
+    }
+
     if (/^[-*]\s+/.test(trimmed)) {
       const items = [];
       while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
@@ -1325,6 +1337,7 @@ function parseMarkdownBlocks(content) {
       !lines[index].trim().startsWith('$$') &&
       !lines[index].trim().startsWith('\\[') &&
       !/^(#{1,3})\s+/.test(lines[index].trim()) &&
+      !/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)$/.test(lines[index].trim()) &&
       !/^[-*]\s+/.test(lines[index].trim()) &&
       !lines[index].trim().startsWith('>')
     ) {
@@ -1352,6 +1365,14 @@ function renderMarkdownBlock(block, index) {
   }
   if (block.type === 'math') {
     return <div className="markdown-math" key={index}>{renderMathExpression(block.text, true)}</div>;
+  }
+  if (block.type === 'image') {
+    return (
+      <figure className="markdown-image-block" key={index}>
+        <img src={block.src} alt={block.alt || block.title || '文章图片'} loading="lazy" />
+        {(block.title || block.alt) && <figcaption>{block.title || block.alt}</figcaption>}
+      </figure>
+    );
   }
   if (block.type === 'list') {
     return (
@@ -1388,7 +1409,7 @@ function renderMathExpression(source, displayMode = false, key) {
 
 function renderInlineMarkdown(text) {
   const parts = [];
-  const pattern = /(\\\([^\n]+?\\\)|\$[^$\n]+\$|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const pattern = /(!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)|\\\([^\n]+?\\\)|\$[^$\n]+\$|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
   let lastIndex = 0;
   let match;
 
@@ -1398,7 +1419,17 @@ function renderInlineMarkdown(text) {
     }
 
     const value = match[0];
-    if (value.startsWith('$')) {
+    if (value.startsWith('![')) {
+      const alt = match[2] || '';
+      const src = match[3] || '';
+      const title = match[4] || alt;
+      parts.push(
+        <span className="markdown-inline-image" key={parts.length}>
+          <img src={src} alt={alt || title || '文章图片'} loading="lazy" />
+          {title && <span>{title}</span>}
+        </span>
+      );
+    } else if (value.startsWith('$')) {
       parts.push(renderMathExpression(value.slice(1, -1), false, parts.length));
     } else if (value.startsWith('\\(')) {
       parts.push(renderMathExpression(value.slice(2, -2), false, parts.length));

@@ -567,6 +567,48 @@ h3 {
   margin: 0;
 }
 
+.markdown-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #d6e0ea;
+  background: #ffffff;
+}
+
+.markdown-image-block {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #e5eaf0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.markdown-image-block figcaption,
+.markdown-inline-image > span {
+  color: #6a7685;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.markdown-inline-image {
+  display: inline-grid;
+  gap: 4px;
+  max-width: min(100%, 360px);
+  margin: 4px 6px;
+  vertical-align: middle;
+}
+
+.markdown-inline-image img {
+  max-height: 260px;
+  object-fit: contain;
+}
+
 .markdown-content ul {
   display: grid;
   gap: 8px;
