@@ -1,5 +1,12 @@
-# 版本日志
+﻿# 版本日志
 
+## v1.5.4 - 旧版笔记迁移
+
+- 从旧版 GitHub Pages 笔记站 `FelixFu-no-website` 迁移 6 篇 Markdown 笔记：Git、Vibe Coding、计算机网络、后端技术指南、前端三件套、React 基础与进阶。
+- 后端新增 `legacy_notes.py`，将旧笔记作为可自动补齐的文章种子数据。
+- `seed_database` 改为逐篇检查缺失文章，不再因为数据库已有文章就跳过全部种子导入。
+- 部署后服务启动会自动插入缺失旧笔记，不会覆盖现有文章、评论或互动数据。
+- 已执行 `python -m compileall backend\app` 和 `npm run build` 验证通过。
 ## v1.5.3 - 文章页白屏热修复
 
 - 修复文章页组件漏传月份归档参数导致进入“文章”页面后前端运行时崩溃、页面空白的问题。

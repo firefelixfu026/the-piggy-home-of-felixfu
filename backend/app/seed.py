@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.legacy_notes import LEGACY_NOTE_ARTICLES
 from app.models import Article, ReactionCounter, Tag
 
 
@@ -34,14 +35,17 @@ SEED_ARTICLES = [
     },
 ]
 
+ALL_SEED_ARTICLES = [*SEED_ARTICLES, *LEGACY_NOTE_ARTICLES]
+
 REACTION_TYPES = ["like", "favorite", "downvote", "question"]
 
 
 def seed_database(db: Session) -> None:
-    if db.scalar(select(Article.id).limit(1)):
-        return
+    has_changes = False
+    for item in ALL_SEED_ARTICLES:
+        if db.get(Article, item["id"]):
+            continue
 
-    for item in SEED_ARTICLES:
         article = Article(
             id=item["id"],
             title=item["title"],
@@ -49,6 +53,7 @@ def seed_database(db: Session) -> None:
             content=item["content"],
             date=item["date"],
             read_time=item["read_time"],
+            status=item.get("status", "published"),
         )
         article.tags = [_get_or_create_tag(db, tag_name) for tag_name in item["tags"]]
         article.reactions = [
@@ -56,8 +61,10 @@ def seed_database(db: Session) -> None:
             for reaction_type in REACTION_TYPES
         ]
         db.add(article)
+        has_changes = True
 
-    db.commit()
+    if has_changes:
+        db.commit()
 
 
 def _get_or_create_tag(db: Session, name: str) -> Tag:
@@ -69,4 +76,3 @@ def _get_or_create_tag(db: Session, name: str) -> Tag:
     db.add(tag)
     db.flush()
     return tag
-
