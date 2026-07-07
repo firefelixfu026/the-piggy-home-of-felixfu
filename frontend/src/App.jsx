@@ -1289,20 +1289,26 @@ function parseMarkdownBlocks(content) {
       continue;
     }
 
-    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({ type: 'divider' });
+      index += 1;
+      continue;
+    }
+
+    const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
       blocks.push({ type: 'heading', level: heading[1].length, text: heading[2] });
       index += 1;
       continue;
     }
 
-    const image = trimmed.match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)$/);
+    const image = parseMarkdownImage(trimmed);
     if (image) {
       blocks.push({
         type: 'image',
-        alt: image[1],
-        src: image[2],
-        title: image[3] || image[1]
+        alt: image.alt,
+        src: image.src,
+        title: image.title || image.alt
       });
       index += 1;
       continue;
@@ -1315,6 +1321,29 @@ function parseMarkdownBlocks(content) {
         index += 1;
       }
       blocks.push({ type: 'list', items });
+      continue;
+    }
+
+    if (/^\d+[.)]\s+/.test(trimmed)) {
+      const items = [];
+      while (index < lines.length && /^\d+[.)]\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+[.)]\s+/, ''));
+        index += 1;
+      }
+      blocks.push({ type: 'orderedList', items });
+      continue;
+    }
+
+    if (isMarkdownTableStart(lines, index)) {
+      const headers = parseMarkdownTableRow(lines[index]);
+      const alignments = parseMarkdownTableAlignments(lines[index + 1]);
+      const rows = [];
+      index += 2;
+      while (index < lines.length && isMarkdownTableRow(lines[index])) {
+        rows.push(parseMarkdownTableRow(lines[index]));
+        index += 1;
+      }
+      blocks.push({ type: 'table', headers, rows, alignments });
       continue;
     }
 
@@ -1336,9 +1365,12 @@ function parseMarkdownBlocks(content) {
       !lines[index].trim().startsWith('```') &&
       !lines[index].trim().startsWith('$$') &&
       !lines[index].trim().startsWith('\\[') &&
-      !/^(#{1,3})\s+/.test(lines[index].trim()) &&
-      !/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)$/.test(lines[index].trim()) &&
+      !/^(-{3,}|\*{3,}|_{3,})$/.test(lines[index].trim()) &&
+      !/^(#{1,6})\s+/.test(lines[index].trim()) &&
+      !parseMarkdownImage(lines[index].trim()) &&
       !/^[-*]\s+/.test(lines[index].trim()) &&
+      !/^\d+[.)]\s+/.test(lines[index].trim()) &&
+      !isMarkdownTableStart(lines, index) &&
       !lines[index].trim().startsWith('>')
     ) {
       paragraph.push(lines[index].trim());
@@ -1350,10 +1382,65 @@ function parseMarkdownBlocks(content) {
   return blocks;
 }
 
+function parseMarkdownImage(text) {
+  const image = text.match(/^!\[([^\]]*)\]\((.+)\)$/);
+  if (!image) return null;
+
+  const alt = image[1] || '';
+  let source = image[2].trim();
+  let title = '';
+  const titleMatch = source.match(/^(.*?)\s+"([^"]+)"$/);
+  if (titleMatch) {
+    source = titleMatch[1].trim();
+    title = titleMatch[2];
+  }
+  if (source.startsWith('<') && source.endsWith('>')) {
+    source = source.slice(1, -1);
+  }
+  if (!source) return null;
+
+  return { alt, src: source, title };
+}
+
+function isMarkdownTableRow(line) {
+  const trimmed = line.trim();
+  return trimmed.includes('|') && !trimmed.startsWith('```');
+}
+
+function parseMarkdownTableRow(line) {
+  const trimmed = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+  return trimmed.split('|').map((cell) => cell.trim());
+}
+
+function isMarkdownTableSeparator(line) {
+  if (!isMarkdownTableRow(line)) return false;
+  const cells = parseMarkdownTableRow(line);
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function isMarkdownTableStart(lines, index) {
+  return (
+    index + 1 < lines.length &&
+    isMarkdownTableRow(lines[index]) &&
+    isMarkdownTableSeparator(lines[index + 1])
+  );
+}
+
+function parseMarkdownTableAlignments(line) {
+  return parseMarkdownTableRow(line).map((cell) => {
+    if (cell.startsWith(':') && cell.endsWith(':')) return 'center';
+    if (cell.endsWith(':')) return 'right';
+    return 'left';
+  });
+}
+
 function renderMarkdownBlock(block, index) {
   if (block.type === 'heading') {
-    const HeadingTag = block.level === 1 ? 'h2' : block.level === 2 ? 'h3' : 'h4';
+    const HeadingTag = block.level <= 1 ? 'h2' : block.level === 2 ? 'h3' : block.level === 3 ? 'h4' : 'h5';
     return <HeadingTag id={getHeadingId(block.text, index)} key={index}>{renderInlineMarkdown(block.text)}</HeadingTag>;
+  }
+  if (block.type === 'divider') {
+    return <hr className="markdown-divider" key={index} />;
   }
   if (block.type === 'code') {
     return (
@@ -1383,6 +1470,43 @@ function renderMarkdownBlock(block, index) {
       </ul>
     );
   }
+  if (block.type === 'orderedList') {
+    return (
+      <ol key={index}>
+        {block.items.map((item, itemIndex) => (
+          <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
+        ))}
+      </ol>
+    );
+  }
+  if (block.type === 'table') {
+    return (
+      <div className="markdown-table-wrap" key={index}>
+        <table>
+          <thead>
+            <tr>
+              {block.headers.map((cell, cellIndex) => (
+                <th style={{ textAlign: block.alignments[cellIndex] || 'left' }} key={cellIndex}>
+                  {renderInlineMarkdown(cell)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {block.headers.map((_, cellIndex) => (
+                  <td style={{ textAlign: block.alignments[cellIndex] || 'left' }} key={cellIndex}>
+                    {renderInlineMarkdown(row[cellIndex] || '')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
   if (block.type === 'quote') {
     return <blockquote key={index}>{renderInlineMarkdown(block.text)}</blockquote>;
   }
@@ -1409,7 +1533,7 @@ function renderMathExpression(source, displayMode = false, key) {
 
 function renderInlineMarkdown(text) {
   const parts = [];
-  const pattern = /(!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)|\\\([^\n]+?\\\)|\$[^$\n]+\$|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const pattern = /(!\[[^\]]*\]\([^)]+\)|\\\([^\n]+?\\\)|\$[^$\n]+\$|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
   let lastIndex = 0;
   let match;
 
@@ -1420,9 +1544,10 @@ function renderInlineMarkdown(text) {
 
     const value = match[0];
     if (value.startsWith('![')) {
-      const alt = match[2] || '';
-      const src = match[3] || '';
-      const title = match[4] || alt;
+      const image = parseMarkdownImage(value);
+      const alt = image?.alt || '';
+      const src = image?.src || '';
+      const title = image?.title || alt;
       parts.push(
         <span className="markdown-inline-image" key={parts.length}>
           <img src={src} alt={alt || title || '文章图片'} loading="lazy" />
