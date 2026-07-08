@@ -44,6 +44,7 @@ ALLOWED_IMAGE_TYPES = {
     "image/svg+xml": ".svg",
 }
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
 
 
 app = FastAPI(title="FelixFu Blog API", version="0.8.0")
@@ -407,6 +408,38 @@ async def upload_admin_image(
     destination = UPLOAD_DIR / filename
     destination.write_bytes(content)
     return {"url": f"/uploads/{filename}", "filename": filename, "size": len(content)}
+
+
+@app.get("/api/admin/uploads/images")
+def list_admin_images(current_user: User = Depends(require_admin)) -> list[dict[str, str | int]]:
+    images = []
+    for path in UPLOAD_DIR.iterdir():
+        if not path.is_file() or path.suffix.lower() not in IMAGE_SUFFIXES:
+            continue
+        stat = path.stat()
+        images.append({
+            "filename": path.name,
+            "url": f"/uploads/{path.name}",
+            "size": stat.st_size,
+            "createdAt": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+        })
+    return sorted(images, key=lambda item: str(item["createdAt"]), reverse=True)
+
+
+@app.delete("/api/admin/uploads/images/{filename}")
+def delete_admin_image(
+    filename: str,
+    current_user: User = Depends(require_admin),
+) -> dict[str, str]:
+    if Path(filename).name != filename or Path(filename).suffix.lower() not in IMAGE_SUFFIXES:
+        raise HTTPException(status_code=400, detail="Invalid image filename")
+
+    target = UPLOAD_DIR / filename
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    target.unlink()
+    return {"status": "deleted", "filename": filename}
 
 
 @app.get("/api/admin/comments")

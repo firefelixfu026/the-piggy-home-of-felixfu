@@ -4,22 +4,29 @@ import {
   BookOpen,
   Bot,
   CheckCircle2,
+  Code2,
+  Copy,
   Eye,
   ExternalLink,
   FilePenLine,
   Gamepad2,
   Github,
+  Heading2,
   Heart,
+  ImageIcon,
+  List,
   LogIn,
   CircleHelp,
   LogOut,
   MessageCircle,
   PencilLine,
   PlusCircle,
+  Quote,
   RefreshCw,
   Save,
   Search,
   ShieldCheck,
+  Sigma,
   Star,
   ThumbsDown,
   Trash2,
@@ -58,6 +65,7 @@ const COMMENT_UNIT_CHARS = 60;
 const ADMIN_COMMENTS_PER_PAGE = 5;
 const IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_UPLOAD_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
+const ARTICLE_DRAFT_KEY = 'felix_blog_article_form_draft';
 const emptyReactionState = { like: false, favorite: false, downvote: false, question: false };
 const ALL_FILTER = '全部';
 const ALL_ARCHIVE = '全部';
@@ -74,6 +82,17 @@ function formatArchiveLabel(month) {
   if (month === ALL_ARCHIVE) return '全部月份';
   const [year, monthValue] = month.split('-');
   return `${year}年${Number(monthValue)}月`;
+}
+
+function hasArticleDraftContent(form) {
+  return ['title', 'summary', 'content', 'coverUrl', 'tags'].some((field) => form[field]?.trim());
+}
+
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes)) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
 
@@ -104,6 +123,9 @@ function App() {
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [isSavingArticle, setIsSavingArticle] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [isLoadingUploadedImages, setIsLoadingUploadedImages] = useState(false);
+  const [articleDraftNotice, setArticleDraftNotice] = useState('');
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -207,8 +229,31 @@ function App() {
   useEffect(() => {
     if (activeView === 'admin' && currentUser?.role === 'admin') {
       refreshAdminComments();
+      refreshUploadedImages();
     }
   }, [activeView, currentUser?.role, authToken]);
+
+  useEffect(() => {
+    if (currentUser?.role !== 'admin') return;
+    const rawDraft = localStorage.getItem(ARTICLE_DRAFT_KEY);
+    if (rawDraft) {
+      setArticleDraftNotice('检测到本地草稿，可选择恢复');
+    }
+  }, [currentUser?.role]);
+
+  useEffect(() => {
+    if (activeView !== 'admin' || currentUser?.role !== 'admin') return;
+    const timer = window.setTimeout(() => {
+      if (!hasArticleDraftContent(articleForm)) return;
+      localStorage.setItem(ARTICLE_DRAFT_KEY, JSON.stringify({
+        form: articleForm,
+        editingArticleId,
+        savedAt: new Date().toISOString()
+      }));
+      setArticleDraftNotice('本地草稿已自动保存');
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [activeView, currentUser?.role, articleForm, editingArticleId]);
 
   useEffect(() => {
     if (activeView !== 'admin') return;
@@ -503,10 +548,33 @@ function App() {
     setArticleForm((current) => ({ ...current, [field]: value }));
   }
 
+  function clearArticleDraft(message = '') {
+    localStorage.removeItem(ARTICLE_DRAFT_KEY);
+    setArticleDraftNotice(message);
+  }
+
+  function restoreArticleDraft() {
+    const rawDraft = localStorage.getItem(ARTICLE_DRAFT_KEY);
+    if (!rawDraft) {
+      setArticleDraftNotice('没有可恢复的本地草稿');
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(rawDraft);
+      setArticleForm({ ...createEmptyArticleForm(), ...(draft.form || {}) });
+      setEditingArticleId(draft.editingArticleId || null);
+      setArticleDraftNotice(`已恢复本地草稿${draft.savedAt ? `：${new Date(draft.savedAt).toLocaleString('zh-CN', { hour12: false })}` : ''}`);
+    } catch {
+      clearArticleDraft('本地草稿已损坏，已清除');
+    }
+  }
+
   function resetArticleForm() {
     setArticleForm(createEmptyArticleForm());
     setEditingArticleId(null);
     setAdminMessage('');
+    clearArticleDraft('');
   }
 
   async function uploadAdminImage(file) {
@@ -543,6 +611,7 @@ function App() {
         setAdminMessage(result.detail || fallbackMessage);
         return;
       }
+      refreshUploadedImages({ resetMessage: false });
       return result;
     } catch {
       setAdminMessage('后端服务不可用，图片上传失败');
@@ -646,6 +715,7 @@ function App() {
       setAdminMessage(editingArticleId ? '文章已更新' : '文章已发布');
       setArticleForm(createEmptyArticleForm());
       setEditingArticleId(null);
+      clearArticleDraft('');
     } catch {
       setAdminMessage('后端服务不可用，保存失败');
     } finally {
@@ -681,6 +751,64 @@ function App() {
       setAdminMessage(`已删除：${article.title}`);
     } catch {
       setAdminMessage('后端服务不可用，删除失败');
+    }
+  }
+
+  async function refreshUploadedImages({ resetMessage = true } = {}) {
+    if (!authToken) return;
+
+    setIsLoadingUploadedImages(true);
+    try {
+      const response = await fetch('/api/admin/uploads/images', {
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setActiveView('login');
+        }
+        return;
+      }
+
+      setUploadedImages(await response.json());
+      if (resetMessage) {
+        setAdminMessage('图片列表已刷新');
+      }
+    } catch {
+      setAdminMessage('后端服务不可用，无法加载图片');
+    } finally {
+      setIsLoadingUploadedImages(false);
+    }
+  }
+
+  async function copyUploadedImageUrl(image) {
+    try {
+      await navigator.clipboard.writeText(image.url);
+      setAdminMessage(`已复制图片地址：${image.url}`);
+    } catch {
+      setAdminMessage(`复制失败，请手动复制：${image.url}`);
+    }
+  }
+
+  async function deleteUploadedImage(image) {
+    if (!window.confirm(`确定删除图片 ${image.filename} 吗？已发布文章中引用它会显示为失效图片。`)) return;
+
+    try {
+      const response = await fetch(`/api/admin/uploads/images/${encodeURIComponent(image.filename)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) {
+        setAdminMessage('图片删除失败');
+        if (response.status === 401 || response.status === 403) {
+          setActiveView('login');
+        }
+        return;
+      }
+
+      setUploadedImages((current) => current.filter((item) => item.filename !== image.filename));
+      setAdminMessage('图片已删除');
+    } catch {
+      setAdminMessage('后端服务不可用，图片删除失败');
     }
   }
 
@@ -887,10 +1015,18 @@ function App() {
             editingArticleId={editingArticleId}
             isSavingArticle={isSavingArticle}
             isUploadingImage={isUploadingImage}
+            uploadedImages={uploadedImages}
+            isLoadingUploadedImages={isLoadingUploadedImages}
+            articleDraftNotice={articleDraftNotice}
             adminMessage={adminMessage}
             submitArticleForm={submitArticleForm}
             uploadArticleCover={uploadArticleCover}
             uploadArticleContentImage={uploadArticleContentImage}
+            refreshUploadedImages={refreshUploadedImages}
+            copyUploadedImageUrl={copyUploadedImageUrl}
+            deleteUploadedImage={deleteUploadedImage}
+            restoreArticleDraft={restoreArticleDraft}
+            clearArticleDraft={clearArticleDraft}
             resetArticleForm={resetArticleForm}
             startEditingArticle={startEditingArticle}
             deleteArticle={deleteArticle}
@@ -1967,10 +2103,18 @@ function AdminWorkspace({
   editingArticleId,
   isSavingArticle,
   isUploadingImage,
+  uploadedImages,
+  isLoadingUploadedImages,
+  articleDraftNotice,
   adminMessage,
   submitArticleForm,
   uploadArticleCover,
   uploadArticleContentImage,
+  refreshUploadedImages,
+  copyUploadedImageUrl,
+  deleteUploadedImage,
+  restoreArticleDraft,
+  clearArticleDraft,
   resetArticleForm,
   startEditingArticle,
   deleteArticle,
@@ -2010,6 +2154,41 @@ function AdminWorkspace({
   const visibleAdminComments = adminCommentPageGroups[currentAdminCommentPage] || [];
   const contentTextareaRef = useRef(null);
 
+  function insertIntoContent(prefix, suffix = '', placeholder = '文本') {
+    const textarea = contentTextareaRef.current;
+    const content = articleForm.content || '';
+    const start = textarea?.selectionStart ?? content.length;
+    const end = textarea?.selectionEnd ?? start;
+    const selected = content.slice(start, end) || placeholder;
+    const nextText = `${prefix}${selected}${suffix}`;
+    const nextContent = `${content.slice(0, start)}${nextText}${content.slice(end)}`;
+    updateArticleForm('content', nextContent);
+    window.setTimeout(() => {
+      textarea?.focus();
+      const cursor = start + nextText.length;
+      textarea?.setSelectionRange(cursor, cursor);
+    }, 0);
+  }
+
+  function insertContentSnippet(snippet) {
+    const textarea = contentTextareaRef.current;
+    const content = articleForm.content || '';
+    const start = textarea?.selectionStart ?? content.length;
+    const end = textarea?.selectionEnd ?? start;
+    const nextContent = `${content.slice(0, start)}${snippet}${content.slice(end)}`;
+    updateArticleForm('content', nextContent);
+    window.setTimeout(() => {
+      textarea?.focus();
+      const cursor = start + snippet.length;
+      textarea?.setSelectionRange(cursor, cursor);
+    }, 0);
+  }
+
+  function insertImageMarkdown(url, filename = '文章图片') {
+    const altText = filename.replace(/\.[^.]+$/, '') || '文章图片';
+    insertContentSnippet(`![${altText}](${url})`);
+  }
+
   return (
     <section className="workspace">
       <div className="section-heading">
@@ -2039,6 +2218,22 @@ function AdminWorkspace({
               </button>
             )}
           </div>
+
+          {articleDraftNotice && (
+            <div className="draft-notice">
+              <span>{articleDraftNotice}</span>
+              <div>
+                <button className="ghost-button" type="button" onClick={restoreArticleDraft}>
+                  <RefreshCw size={16} />
+                  <span>恢复</span>
+                </button>
+                <button className="ghost-button" type="button" onClick={() => clearArticleDraft('')}>
+                  <X size={16} />
+                  <span>丢弃</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           <label>
             <span>标题</span>
@@ -2091,6 +2286,26 @@ function AdminWorkspace({
 
           <label>
             <span>正文</span>
+            <div className="markdown-toolbar" aria-label="Markdown 工具栏">
+              <button type="button" title="二级标题" onClick={() => insertIntoContent('## ', '', '小标题')}>
+                <Heading2 size={16} />
+              </button>
+              <button type="button" title="加粗" onClick={() => insertIntoContent('**', '**', '加粗文字')}>
+                <strong>B</strong>
+              </button>
+              <button type="button" title="列表" onClick={() => insertIntoContent('- ', '', '列表项')}>
+                <List size={16} />
+              </button>
+              <button type="button" title="引用" onClick={() => insertIntoContent('> ', '', '引用内容')}>
+                <Quote size={16} />
+              </button>
+              <button type="button" title="代码块" onClick={() => insertIntoContent('```js\n', '\n```', 'console.log("Hello Felix")')}>
+                <Code2 size={16} />
+              </button>
+              <button type="button" title="公式" onClick={() => insertIntoContent('\n$$\n', '\n$$\n', 'E = mc^2')}>
+                <Sigma size={16} />
+              </button>
+            </div>
             <textarea
               ref={contentTextareaRef}
               value={articleForm.content}
@@ -2215,6 +2430,51 @@ function AdminWorkspace({
                 </div>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="admin-panel image-manager">
+          <div className="admin-panel-heading">
+            <h2>图片管理</h2>
+            <div className="manager-actions">
+              <span>{isLoadingUploadedImages ? '加载中' : `${uploadedImages.length} 张`}</span>
+              <button type="button" onClick={() => refreshUploadedImages()}>
+                <RefreshCw size={17} />
+                <span>刷新</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="image-resource-grid">
+            {uploadedImages.length === 0 ? (
+              <p className="empty-state">暂无上传图片</p>
+            ) : (
+              uploadedImages.map((image) => (
+                <article className="image-resource" key={image.filename}>
+                  <div className="image-resource-preview">
+                    <MarkdownImage src={image.url} alt={image.filename} />
+                  </div>
+                  <div className="image-resource-meta">
+                    <strong title={image.filename}>{image.filename}</strong>
+                    <span>{formatFileSize(image.size)}</span>
+                  </div>
+                  <div className="manager-actions">
+                    <button type="button" onClick={() => copyUploadedImageUrl(image)}>
+                      <Copy size={16} />
+                      <span>复制</span>
+                    </button>
+                    <button type="button" onClick={() => insertImageMarkdown(image.url, image.filename)}>
+                      <ImageIcon size={16} />
+                      <span>插入</span>
+                    </button>
+                    <button className="danger-button" type="button" onClick={() => deleteUploadedImage(image)}>
+                      <Trash2 size={16} />
+                      <span>删除</span>
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
           </div>
         </section>
 
