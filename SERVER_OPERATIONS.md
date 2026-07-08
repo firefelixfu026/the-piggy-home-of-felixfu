@@ -179,6 +179,25 @@ sudo systemctl status nginx
 /etc/nginx/sites-enabled/felixfu-blog
 ```
 
+上传图片失败时，先确认宿主机 Nginx 也放开上传大小。编辑站点配置：
+
+```bash
+sudo nano /etc/nginx/sites-available/felixfu-blog
+```
+
+在 `server { ... }` 内加入：
+
+```nginx
+client_max_body_size 6m;
+```
+
+保存后检查并重载：
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
 ## 9. HTTPS 证书
 
 查看证书：

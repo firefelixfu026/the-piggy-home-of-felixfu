@@ -311,6 +311,8 @@ server {
     listen 80;
     server_name example.com www.example.com;
 
+    client_max_body_size 6m;
+
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;

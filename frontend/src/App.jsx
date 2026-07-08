@@ -56,6 +56,8 @@ const COMMENT_MAX_LENGTH = 300;
 const COMMENT_PAGE_UNITS = 5;
 const COMMENT_UNIT_CHARS = 60;
 const ADMIN_COMMENTS_PER_PAGE = 5;
+const IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_UPLOAD_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
 const emptyReactionState = { like: false, favorite: false, downvote: false, question: false };
 const ALL_FILTER = '全部';
 const ALL_ARCHIVE = '全部';
@@ -514,6 +516,14 @@ function App() {
       setActiveView('login');
       return;
     }
+    if (!ALLOWED_IMAGE_UPLOAD_TYPES.has(file.type)) {
+      setAdminMessage('图片上传失败：只支持 JPG、PNG、WebP、GIF 或 SVG');
+      return;
+    }
+    if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
+      setAdminMessage('图片上传失败：图片不能超过 5 MB');
+      return;
+    }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -527,7 +537,10 @@ function App() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setAdminMessage(result.detail || '图片上传失败');
+        const fallbackMessage = response.status === 413
+          ? '图片上传失败：服务器上传上限太小，需要调整 Nginx client_max_body_size'
+          : `图片上传失败：HTTP ${response.status}`;
+        setAdminMessage(result.detail || fallbackMessage);
         return;
       }
       updateArticleForm('coverUrl', result.url || '');

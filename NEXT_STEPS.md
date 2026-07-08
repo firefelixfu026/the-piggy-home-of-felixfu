@@ -2,9 +2,25 @@
 
 当前项目状态：已经完成本地 MVP、FastAPI 接口骨架、小游戏嵌入、PostgreSQL 数据持久化、文章管理后台、邮箱登录鉴权、GitHub OAuth 登录、Docker Compose 一键启动、GitHub Actions 自动测试和阶段性文档整理；本地 Git 仓库已绑定 GitHub 远程仓库 `https://github.com/firefelixfu026/the-piggy-home-of-felixfu.git`。
 
-当前最新阶段：v1.5.9 后台图片上传。管理员可以在文章表单中选择本地图片上传，系统会生成站内 `/uploads/...` 地址并自动填入封面图字段；上传图片通过 Docker 数据卷持久化。
+当前最新阶段：v1.5.10 图片上传失败提示热修。前端会在上传前检查图片类型和大小，失败时给出更明确原因；服务器文档补充宿主机 Nginx 上传上限配置。
 
 GitHub 推送问题已通过 Clash `127.0.0.1:7897` 代理解决，排查细节已归档到 `docs/archive/GITHUB_PUSH_TROUBLESHOOTING.md`。
+
+## 29. v1.5.10 已完成：图片上传失败提示热修
+
+本阶段已完成：
+
+- 前端上传前检查图片类型，仅允许 JPG、PNG、WebP、GIF 和 SVG。
+- 前端上传前检查图片大小，超过 5 MB 会直接提示，不再发起无效请求。
+- 上传接口返回错误时会显示 HTTP 状态码；如果遇到 413，会明确提示需要调整服务器 Nginx 上传上限。
+- 云服务器部署文档和运维文档补充宿主机 Nginx `client_max_body_size 6m;` 配置。
+
+部署后请重点测试：
+
+1. 上传一张小于 5 MB 的 JPG 或 PNG，确认可以成功填入 `/uploads/...`。
+2. 上传一个非图片文件，确认提示“只支持 JPG、PNG、WebP、GIF 或 SVG”。
+3. 上传一张大于 5 MB 的图片，确认前端直接提示“图片不能超过 5 MB”。
+4. 如果小于 5 MB 的图片仍失败并出现 413，请在服务器宿主机 Nginx 配置中加入 `client_max_body_size 6m;` 后重载 Nginx。
 
 ## 28. v1.5.9 已完成：后台图片上传
 
