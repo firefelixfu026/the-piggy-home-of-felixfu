@@ -120,6 +120,14 @@ class LoginIn(BaseModel):
     password: str
 
 
+class AiWorkbenchIn(BaseModel):
+    mode: Literal["ideas", "summary", "titles"]
+    topic: str = ""
+    content: str = ""
+    tone: str = "技术学习"
+    tags: list[str] = []
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
@@ -489,6 +497,84 @@ def approve_admin_comment(
 @app.get("/api/ai/news")
 def get_ai_news() -> list[dict]:
     return AI_NEWS
+
+
+@app.post("/api/ai/workbench")
+def run_ai_workbench(payload: AiWorkbenchIn) -> dict:
+    topic = _optional_text(payload.topic) or "个人博客"
+    content = _optional_text(payload.content)
+    tags = [_optional_text(tag) for tag in payload.tags if _optional_text(tag)]
+    tone = _optional_text(payload.tone) or "技术学习"
+
+    if payload.mode == "ideas":
+        items = [
+            {
+                "title": f"{topic}：从问题到实践的学习记录",
+                "summary": f"用一篇偏{tone}风格的文章，记录你为什么关注这个主题、踩过哪些坑、最后沉淀出什么方法。",
+                "tags": tags or ["学习笔记", "实践复盘"],
+                "action": "适合写成项目复盘或学习笔记。",
+            },
+            {
+                "title": f"{topic} 入门路线和资料整理",
+                "summary": "把零散资料整理成可执行的学习路线，适合作为个人博客里的长期索引文章。",
+                "tags": tags or ["资料整理", "路线图"],
+                "action": "适合配合外链、图片和阶段性任务清单。",
+            },
+            {
+                "title": f"我如何用 {topic} 改进自己的工作流",
+                "summary": "围绕一个真实场景展开，写清楚旧流程的问题、新流程的设计和可量化结果。",
+                "tags": tags or ["效率", "自动化"],
+                "action": "适合后续接入 AI 自动化模块。",
+            },
+        ]
+    elif payload.mode == "summary":
+        source = content or topic
+        compact = re.sub(r"\s+", " ", source).strip()
+        if len(compact) > 120:
+            compact = compact[:120].rstrip() + "..."
+        items = [
+            {
+                "title": "短摘要",
+                "summary": compact or "这里会根据正文生成一段适合文章列表展示的短摘要。",
+                "tags": tags or ["摘要"],
+                "action": "下一版可一键填入文章摘要字段。",
+            },
+            {
+                "title": "结构化摘要",
+                "summary": f"主题：{topic}。核心内容围绕背景、关键做法和后续计划展开，适合用在文章开头或结尾。",
+                "tags": tags or ["结构化总结"],
+                "action": "适合发布前快速检查文章主线。",
+            },
+        ]
+    else:
+        items = [
+            {
+                "title": f"{topic} 的一次完整复盘",
+                "summary": "稳妥、清晰，适合技术学习文章。",
+                "tags": tags or ["标题候选"],
+                "action": "偏记录型标题。",
+            },
+            {
+                "title": f"从零搭建 {topic}：我踩过的坑和解决办法",
+                "summary": "更有故事性，适合项目搭建记录。",
+                "tags": tags or ["标题候选"],
+                "action": "偏经验分享标题。",
+            },
+            {
+                "title": f"为什么我决定把 {topic} 做成长期模块",
+                "summary": "更偏个人博客表达，适合说明动机和路线。",
+                "tags": tags or ["标题候选"],
+                "action": "偏思考型标题。",
+            },
+        ]
+
+    return {
+        "mode": payload.mode,
+        "provider": "local-placeholder",
+        "status": "mock",
+        "message": "v1.7.0 先使用本地占位生成逻辑；接入真实模型后会替换为 AI Provider 输出。",
+        "items": items,
+    }
 
 
 @app.get("/api/game/card-war")

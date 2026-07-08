@@ -1881,33 +1881,193 @@ function uniqueCommentOptions(comments, primaryKey, fallbackKey) {
 }
 
 function AiWorkspace({ news, articles }) {
+  const aiModes = [
+    { id: 'ideas', label: '文章灵感', description: '从主题生成选题、角度和标签建议。' },
+    { id: 'summary', label: '摘要生成', description: '根据正文或主题生成短摘要和结构化摘要。' },
+    { id: 'titles', label: '标题优化', description: '生成多个适合个人博客的标题候选。' }
+  ];
+  const [mode, setMode] = useState('ideas');
+  const [form, setForm] = useState({
+    topic: '个人博客 AI 模块',
+    content: '',
+    tone: '技术学习',
+    tags: 'AI, 自动化, 博客'
+  });
+  const [result, setResult] = useState(null);
+  const [message, setMessage] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const activeMode = aiModes.find((item) => item.id === mode) || aiModes[0];
+
+  function updateAiForm(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function generateAiResult(event) {
+    event.preventDefault();
+    setIsGenerating(true);
+    setMessage('');
+
+    try {
+      const response = await fetch('/api/ai/workbench', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode,
+          topic: form.topic,
+          content: form.content,
+          tone: form.tone,
+          tags: form.tags.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean)
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(payload.detail || 'AI 工作台生成失败');
+        return;
+      }
+      setResult(payload);
+      setMessage(payload.message || '已生成候选内容');
+    } catch {
+      setMessage('后端服务不可用，AI 工作台暂时无法生成');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function copyAiText(item) {
+    const text = `${item.title}\n\n${item.summary}\n\n${(item.tags || []).join(', ')}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setMessage('已复制 AI 候选内容');
+    } catch {
+      setMessage('复制失败，请手动选择候选内容');
+    }
+  }
+
   return (
     <section className="workspace">
       <div className="section-heading">
-        <p className="eyebrow">AI 自动化</p>
-        <h1>每日技术新闻和文章总结</h1>
+        <p className="eyebrow">AI 工作台</p>
+        <h1>写作灵感、摘要和标题优化</h1>
       </div>
 
-      <div className="split-grid">
-        <section className="tool-panel">
-          <h2>每日技术新闻</h2>
-          {news.map((item) => (
-            <article className="news-item" key={item.title}>
-              <span>{item.source}</span>
-              <h3>{item.title}</h3>
-              <p>{item.summary}</p>
-            </article>
-          ))}
+      <div className="ai-workbench-grid">
+        <form className="tool-panel ai-generator" onSubmit={generateAiResult}>
+          <div className="ai-mode-tabs" role="tablist" aria-label="AI 模式">
+            {aiModes.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={item.id === mode ? 'active' : ''}
+                onClick={() => setMode(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div>
+            <h2>{activeMode.label}</h2>
+            <p>{activeMode.description}</p>
+          </div>
+
+          <label>
+            <span>主题</span>
+            <input
+              value={form.topic}
+              onChange={(event) => updateAiForm('topic', event.target.value)}
+              placeholder="例如：个人博客 AI 模块"
+            />
+          </label>
+
+          <label>
+            <span>正文或背景材料</span>
+            <textarea
+              value={form.content}
+              onChange={(event) => updateAiForm('content', event.target.value)}
+              placeholder="可粘贴文章正文、项目背景或你想整理的碎片想法"
+              rows={8}
+            />
+          </label>
+
+          <div className="admin-form-grid compact">
+            <label>
+              <span>语气</span>
+              <select value={form.tone} onChange={(event) => updateAiForm('tone', event.target.value)}>
+                <option>技术学习</option>
+                <option>个人博客</option>
+                <option>项目复盘</option>
+                <option>简洁正式</option>
+              </select>
+            </label>
+            <label>
+              <span>标签</span>
+              <input
+                value={form.tags}
+                onChange={(event) => updateAiForm('tags', event.target.value)}
+                placeholder="AI, 自动化"
+              />
+            </label>
+          </div>
+
+          <button className="primary-action" type="submit" disabled={isGenerating}>
+            <Bot size={17} />
+            <span>{isGenerating ? '生成中' : '生成候选'}</span>
+          </button>
+
+          {message && <p className="admin-message">{message}</p>}
+        </form>
+
+        <section className="tool-panel ai-result-panel">
+          <div className="admin-panel-heading">
+            <h2>生成结果</h2>
+            <span>{result?.provider === 'local-placeholder' ? '本地占位' : 'AI'}</span>
+          </div>
+
+          {!result ? (
+            <p className="empty-state">选择一种模式并点击生成，这里会显示候选内容。</p>
+          ) : (
+            <div className="ai-result-list">
+              {result.items.map((item) => (
+                <article className="ai-result-card" key={`${result.mode}-${item.title}`}>
+                  <div>
+                    <h3>{item.title}</h3>
+                    <p>{item.summary}</p>
+                  </div>
+                  <div className="tag-row">
+                    {(item.tags || []).map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                  <div className="manager-actions">
+                    <span>{item.action}</span>
+                    <button type="button" onClick={() => copyAiText(item)}>
+                      <Copy size={16} />
+                      <span>复制</span>
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
-        <section className="tool-panel">
-          <h2>文章 AI 总结</h2>
-          {articles.map((article) => (
-            <article className="digest-item" key={article.id}>
-              <strong>{article.title}</strong>
-              <p>{article.summary}</p>
-            </article>
-          ))}
+        <section className="tool-panel ai-reference-panel">
+          <h2>参考素材</h2>
+          <div className="ai-reference-list">
+            {news.map((item) => (
+              <article className="news-item" key={item.title}>
+                <span>{item.source}</span>
+                <h3>{item.title}</h3>
+                <p>{item.summary}</p>
+              </article>
+            ))}
+            {articles.slice(0, 4).map((article) => (
+              <article className="digest-item" key={article.id}>
+                <strong>{article.title}</strong>
+                <p>{article.summary}</p>
+              </article>
+            ))}
+          </div>
         </section>
       </div>
     </section>
