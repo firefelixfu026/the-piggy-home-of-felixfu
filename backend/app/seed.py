@@ -39,18 +39,27 @@ ALL_SEED_ARTICLES = [*SEED_ARTICLES, *LEGACY_NOTE_ARTICLES]
 
 REACTION_TYPES = ["like", "favorite", "downvote", "question"]
 
+LEGACY_CONTENT_REPLACEMENTS = {
+    "https://zju-xlab.feishu.cn/space/api/box/stream/download/asynccode/?code=ZTBlNjU5NTZiZjY5OWUwOGQ1YThkMjM0MGNkMjRlZGNfSDZyVGFGMktvWmVaczlQQU5RVGFSU0N4OXhTeGFjenFfVG9rZW46Rmx0Q2JsQ2xnb0JoTGh4bHpCNWM0bUY3bkpnXzE3Nzc1MTgyNDA6MTc3NzUyMTg0MF9WNA": "/articles/git-workflow.svg",
+}
+
 
 def seed_database(db: Session) -> None:
     has_changes = False
     for item in ALL_SEED_ARTICLES:
-        if db.get(Article, item["id"]):
+        existing_article = db.get(Article, item["id"])
+        if existing_article:
+            normalized_content = _normalize_seed_content(existing_article.content or "")
+            if normalized_content != existing_article.content:
+                existing_article.content = normalized_content
+                has_changes = True
             continue
 
         article = Article(
             id=item["id"],
             title=item["title"],
             summary=item["summary"],
-            content=item["content"],
+            content=_normalize_seed_content(item["content"]),
             date=item["date"],
             read_time=item["read_time"],
             status=item.get("status", "published"),
@@ -65,6 +74,12 @@ def seed_database(db: Session) -> None:
 
     if has_changes:
         db.commit()
+
+
+def _normalize_seed_content(content: str) -> str:
+    for old_value, new_value in LEGACY_CONTENT_REPLACEMENTS.items():
+        content = content.replace(old_value, new_value)
+    return content
 
 
 def _get_or_create_tag(db: Session, name: str) -> Tag:

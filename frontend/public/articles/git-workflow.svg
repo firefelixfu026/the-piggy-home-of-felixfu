@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">Git workflow</title>
+  <desc id="desc">Working directory, staging area, local repository, and remote repository flow.</desc>
+  <rect width="960" height="320" rx="18" fill="#f8fafc"/>
+  <rect x="40" y="56" width="170" height="148" rx="14" fill="#e9fbf1" stroke="#1f7a6d" stroke-width="3"/>
+  <rect x="282" y="56" width="170" height="148" rx="14" fill="#eef4f8" stroke="#365f7f" stroke-width="3"/>
+  <rect x="524" y="56" width="170" height="148" rx="14" fill="#fff7e6" stroke="#b7791f" stroke-width="3"/>
+  <rect x="766" y="56" width="154" height="148" rx="14" fill="#fef2f2" stroke="#b83245" stroke-width="3"/>
+
+  <text x="125" y="100" text-anchor="middle" fill="#102033" font-family="Arial, sans-serif" font-size="22" font-weight="700">工作区</text>
+  <text x="125" y="134" text-anchor="middle" fill="#475569" font-family="Arial, sans-serif" font-size="16">Working Tree</text>
+  <text x="367" y="100" text-anchor="middle" fill="#102033" font-family="Arial, sans-serif" font-size="22" font-weight="700">暂存区</text>
+  <text x="367" y="134" text-anchor="middle" fill="#475569" font-family="Arial, sans-serif" font-size="16">Stage / Index</text>
+  <text x="609" y="100" text-anchor="middle" fill="#102033" font-family="Arial, sans-serif" font-size="22" font-weight="700">本地仓库</text>
+  <text x="609" y="134" text-anchor="middle" fill="#475569" font-family="Arial, sans-serif" font-size="16">Local Repo</text>
+  <text x="843" y="100" text-anchor="middle" fill="#102033" font-family="Arial, sans-serif" font-size="22" font-weight="700">远程仓库</text>
+  <text x="843" y="134" text-anchor="middle" fill="#475569" font-family="Arial, sans-serif" font-size="16">Remote Repo</text>
+
+  <path d="M218 130h54" stroke="#102033" stroke-width="4" stroke-linecap="round"/>
+  <path d="M264 118l14 12-14 12" fill="none" stroke="#102033" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M460 130h54" stroke="#102033" stroke-width="4" stroke-linecap="round"/>
+  <path d="M506 118l14 12-14 12" fill="none" stroke="#102033" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M702 130h54" stroke="#102033" stroke-width="4" stroke-linecap="round"/>
+  <path d="M748 118l14 12-14 12" fill="none" stroke="#102033" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="245" y="108" text-anchor="middle" fill="#1f7a6d" font-family="Consolas, monospace" font-size="16">git add</text>
+  <text x="487" y="108" text-anchor="middle" fill="#365f7f" font-family="Consolas, monospace" font-size="16">git commit</text>
+  <text x="729" y="108" text-anchor="middle" fill="#b83245" font-family="Consolas, monospace" font-size="16">git push</text>
+
+  <path d="M843 214c0 44-234 58-476 58S125 238 125 214" fill="none" stroke="#64748b" stroke-width="3" stroke-dasharray="8 8"/>
+  <path d="M137 220l-14-8 5 15" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="484" y="292" text-anchor="middle" fill="#475569" font-family="Arial, sans-serif" font-size="18">git pull / fetch 后同步远程变化</text>
+</svg>

@@ -1210,6 +1210,29 @@ function MarkdownContent({ content, title }) {
   );
 }
 
+function MarkdownImage({ src, alt, className = '' }) {
+  const [hasError, setHasError] = useState(false);
+  const imageAlt = alt || '文章图片';
+
+  if (hasError) {
+    return (
+      <span className={`markdown-image-fallback ${className}`.trim()} role="note">
+        图片暂时无法加载：{imageAlt}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      className={className || undefined}
+      src={src}
+      alt={imageAlt}
+      loading="lazy"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 function parseMarkdownBlocks(content) {
   const lines = content.replace(/\r\n/g, '\n').split('\n');
   const blocks = [];
@@ -1456,7 +1479,7 @@ function renderMarkdownBlock(block, index) {
   if (block.type === 'image') {
     return (
       <figure className="markdown-image-block" key={index}>
-        <img src={block.src} alt={block.alt || block.title || '文章图片'} loading="lazy" />
+        <MarkdownImage src={block.src} alt={block.alt || block.title || '文章图片'} />
         {(block.title || block.alt) && <figcaption>{block.title || block.alt}</figcaption>}
       </figure>
     );
@@ -1550,7 +1573,7 @@ function renderInlineMarkdown(text) {
       const title = image?.title || alt;
       parts.push(
         <span className="markdown-inline-image" key={parts.length}>
-          <img src={src} alt={alt || title || '文章图片'} loading="lazy" />
+          <MarkdownImage src={src} alt={alt || title || '文章图片'} />
           {title && <span>{title}</span>}
         </span>
       );

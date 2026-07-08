@@ -1,4 +1,4 @@
-# Generated from https://github.com/firefelixfu026/FelixFu-no-website
+﻿# Generated from https://github.com/firefelixfu026/FelixFu-no-website
 # Source files live under that repository's docs/ directory.
 
 LEGACY_NOTE_ARTICLES = [{'id': 'legacy-note-git',
@@ -20,7 +20,7 @@ LEGACY_NOTE_ARTICLES = [{'id': 'legacy-note-git',
              '- 活动分支：feature，hotfix，release\n'
              '\n'
              '### Git 结构\n'
-             '![](https://zju-xlab.feishu.cn/space/api/box/stream/download/asynccode/?code=ZTBlNjU5NTZiZjY5OWUwOGQ1YThkMjM0MGNkMjRlZGNfSDZyVGFGMktvWmVaczlQQU5RVGFSU0N4OXhTeGFjenFfVG9rZW46Rmx0Q2JsQ2xnb0JoTGh4bHpCNWM0bUY3bkpnXzE3Nzc1MTgyNDA6MTc3NzUyMTg0MF9WNA)\n'
+             '![](/articles/git-workflow.svg)\n'
              '\n'
              '工作区->暂存区（stage，实现分批按逻辑提交）->本地仓库->远程仓库\n'
              '\n'
