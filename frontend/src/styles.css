@@ -239,6 +239,13 @@ h3 {
   line-height: 1.8;
 }
 
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0 16px;
+}
+
 .interest-row,
 .tag-row,
 .tag-filter,
@@ -415,6 +422,62 @@ h3 {
 
 .metric strong {
   font-size: 22px;
+}
+
+.capability-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.capability-card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.capability-card > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.capability-card svg {
+  color: #1f7a6d;
+  flex: 0 0 auto;
+}
+
+.capability-card h3 {
+  margin-bottom: 0;
+}
+
+.capability-card p {
+  color: #5b6878;
+  line-height: 1.7;
+}
+
+.capability-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  color: #102033;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.capability-card button:hover {
+  border-color: #1f7a6d;
+  color: #1f7a6d;
 }
 
 .content-band,
@@ -968,6 +1031,36 @@ h3 {
 
 .ai-generator {
   align-content: start;
+}
+
+.ai-status {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #facc15;
+  border-radius: 8px;
+  color: #713f12;
+  background: #fefce8;
+}
+
+.ai-status.ready {
+  color: #155f53;
+  border-color: #b7dfd6;
+  background: #edfdf7;
+}
+
+.ai-status span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ai-status strong {
+  overflow-wrap: anywhere;
+}
+
+.ai-status p {
+  margin-bottom: 0;
+  line-height: 1.6;
 }
 
 .ai-generator label {
@@ -1716,6 +1809,10 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .capability-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .topbar {
     align-items: stretch;
     flex-direction: column;
@@ -1756,6 +1853,10 @@ h3 {
   }
 
   .ai-mode-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .capability-grid {
     grid-template-columns: 1fr;
   }
 

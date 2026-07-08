@@ -59,6 +59,15 @@ GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
 FRONTEND_ORIGIN=http://127.0.0.1:8080
 ```
 
+AI 工作台当前可以不配置真实模型，会自动使用本地占位模式。后续接入 OpenAI 兼容 API 时，再补充：
+
+```text
+AI_PROVIDER_NAME=OpenAI
+AI_BASE_URL=https://api.openai.com/v1
+AI_MODEL=你的模型名
+AI_API_KEY=你的 API Key
+```
+
 `.env` 已被 `.gitignore` 忽略，不会提交到 GitHub。
 
 ## 3. 一键启动

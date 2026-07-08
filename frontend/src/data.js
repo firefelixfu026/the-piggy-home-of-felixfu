@@ -2,14 +2,14 @@ export const profile = {
   name: '付江樊',
   englishName: 'Felix Fu',
   school: '浙江大学',
-  role: '综合型个人博客 · 学习笔记 · 技术项目',
-  interests: ['长跑', '唱歌', '游戏'],
+  role: '个人博客 · 学习笔记 · AI 工作台 · 技术项目',
+  interests: ['技术写作', 'AI 自动化', '长跑', '游戏'],
   summary:
-    '这里会逐步沉淀学习笔记、技术文章、个人项目、AI 自动化内容和小游戏实验。MVP 阶段先完成可展示结构，后续接入真实登录、数据库和云端部署。',
+    '这里沉淀学习笔记、项目复盘和个人实验。当前博客已经具备文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署和 AI 工作台骨架。',
   metrics: [
-    { label: 'MVP 状态', value: 'v0.1' },
-    { label: '文章方向', value: '技术/学习' },
-    { label: '扩展模块', value: 'AI + 游戏' }
+    { label: '当前阶段', value: 'v1.7.1' },
+    { label: '写作后台', value: '已可用' },
+    { label: 'AI 模块', value: '工作台骨架' }
   ]
 };
 

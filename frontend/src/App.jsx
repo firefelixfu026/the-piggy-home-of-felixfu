@@ -959,7 +959,7 @@ function App() {
           </div>
         </header>
 
-        {activeView === 'overview' && <Overview profile={profile} articles={articles} />}
+        {activeView === 'overview' && <Overview profile={profile} articles={articles} setActiveView={setActiveView} />}
 
         {activeView === 'articles' && (
           <ArticleWorkspace
@@ -1052,7 +1052,38 @@ function App() {
   );
 }
 
-function Overview({ profile, articles }) {
+function Overview({ profile, articles, setActiveView }) {
+  const capabilityCards = [
+    {
+      title: '文章系统',
+      summary: '支持 Markdown、LaTeX、图片上传、封面图、标签筛选、评论审核和阅读统计。',
+      action: '浏览文章',
+      view: 'articles',
+      icon: BookOpen
+    },
+    {
+      title: 'AI 工作台',
+      summary: '已支持文章灵感、摘要生成和标题优化的可交互流程，下一步接入真实模型。',
+      action: '打开 AI',
+      view: 'ai',
+      icon: Bot
+    },
+    {
+      title: '小游戏',
+      summary: '已嵌入 Card War 在线试玩，后续可接排行榜和统一登录后的分数记录。',
+      action: '试玩游戏',
+      view: 'game',
+      icon: Gamepad2
+    },
+    {
+      title: '写作后台',
+      summary: '管理员可发布文章、管理图片、恢复本地草稿、审核评论和维护内容。',
+      action: '进入后台',
+      view: 'admin',
+      icon: FilePenLine
+    }
+  ];
+
   return (
     <section className="workspace">
       <div className="profile-grid">
@@ -1060,6 +1091,16 @@ function Overview({ profile, articles }) {
           <p className="eyebrow">{profile.school}</p>
           <h1>{profile.name}的个人博客</h1>
           <p className="summary">{profile.summary}</p>
+          <div className="hero-actions">
+            <button className="primary-action" type="button" onClick={() => setActiveView('articles')}>
+              <BookOpen size={17} />
+              <span>看文章</span>
+            </button>
+            <button className="ghost-button" type="button" onClick={() => setActiveView('ai')}>
+              <Bot size={17} />
+              <span>打开 AI 工作台</span>
+            </button>
+          </div>
           <div className="interest-row">
             {profile.interests.map((interest) => (
               <span key={interest}>{interest}</span>
@@ -1077,6 +1118,31 @@ function Overview({ profile, articles }) {
           </div>
         ))}
       </div>
+
+      <section className="content-band">
+        <div className="section-heading">
+          <p className="eyebrow">当前能力</p>
+          <h2>博客已经从 MVP 进入 AI 模块阶段</h2>
+        </div>
+        <div className="capability-grid">
+          {capabilityCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <article className="capability-card" key={card.title}>
+                <div>
+                  <Icon size={20} />
+                  <h3>{card.title}</h3>
+                </div>
+                <p>{card.summary}</p>
+                <button type="button" onClick={() => setActiveView(card.view)}>
+                  <span>{card.action}</span>
+                  <ExternalLink size={16} />
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="content-band">
         <div className="section-heading">
@@ -1895,8 +1961,24 @@ function AiWorkspace({ news, articles }) {
   });
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState('');
+  const [aiStatus, setAiStatus] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const activeMode = aiModes.find((item) => item.id === mode) || aiModes[0];
+
+  useEffect(() => {
+    async function loadAiStatus() {
+      try {
+        const response = await fetch('/api/ai/status');
+        if (response.ok) {
+          setAiStatus(await response.json());
+        }
+      } catch {
+        setAiStatus(null);
+      }
+    }
+
+    loadAiStatus();
+  }, []);
 
   function updateAiForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -1952,6 +2034,14 @@ function AiWorkspace({ news, articles }) {
 
       <div className="ai-workbench-grid">
         <form className="tool-panel ai-generator" onSubmit={generateAiResult}>
+          {aiStatus && (
+            <div className={aiStatus.configured ? 'ai-status ready' : 'ai-status'}>
+              <span>{aiStatus.configured ? '真实模型已配置' : '本地占位模式'}</span>
+              <strong>{aiStatus.provider} · {aiStatus.model}</strong>
+              <p>{aiStatus.message}</p>
+            </div>
+          )}
+
           <div className="ai-mode-tabs" role="tablist" aria-label="AI 模式">
             {aiModes.map((item) => (
               <button

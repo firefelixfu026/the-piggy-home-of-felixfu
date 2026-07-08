@@ -32,6 +32,10 @@ from app.seed import REACTION_TYPES, seed_database
 
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173").rstrip("/")
+AI_PROVIDER_NAME = os.getenv("AI_PROVIDER_NAME", "local-placeholder").strip() or "local-placeholder"
+AI_BASE_URL = os.getenv("AI_BASE_URL", "").strip()
+AI_MODEL = os.getenv("AI_MODEL", "").strip()
+AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
 ADMIN_SETUP_TOKEN = os.getenv("ADMIN_SETUP_TOKEN", "").strip()
 COMMENT_MAX_LENGTH = 300
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
@@ -63,13 +67,13 @@ PROFILE = {
     "name": "付江樊",
     "englishName": "Felix Fu",
     "school": "浙江大学",
-    "role": "综合型个人博客 · 学习笔记 · 技术项目",
-    "interests": ["长跑", "唱歌", "游戏"],
-    "summary": "这里会逐步沉淀学习笔记、技术文章、个人项目、AI 自动化内容和小游戏实验。MVP 阶段先完成可展示结构，后续接入真实登录、数据库和云端部署。",
+    "role": "个人博客 · 学习笔记 · AI 工作台 · 技术项目",
+    "interests": ["技术写作", "AI 自动化", "长跑", "游戏"],
+    "summary": "这里沉淀学习笔记、项目复盘和个人实验。当前博客已经具备文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署和 AI 工作台骨架。",
     "metrics": [
-        {"label": "MVP 状态", "value": "v0.8"},
-        {"label": "文章方向", "value": "技术/学习"},
-        {"label": "扩展模块", "value": "AI + 游戏"},
+        {"label": "当前阶段", "value": "v1.7.1"},
+        {"label": "写作后台", "value": "已可用"},
+        {"label": "AI 模块", "value": "工作台骨架"},
     ],
 }
 
@@ -497,6 +501,20 @@ def approve_admin_comment(
 @app.get("/api/ai/news")
 def get_ai_news() -> list[dict]:
     return AI_NEWS
+
+
+@app.get("/api/ai/status")
+def get_ai_status() -> dict[str, str | bool]:
+    configured = bool(AI_API_KEY and AI_MODEL and AI_BASE_URL)
+    return {
+        "provider": AI_PROVIDER_NAME,
+        "model": AI_MODEL or "未配置",
+        "baseUrlConfigured": bool(AI_BASE_URL),
+        "apiKeyConfigured": bool(AI_API_KEY),
+        "configured": configured,
+        "mode": "real-model-ready" if configured else "local-placeholder",
+        "message": "真实模型配置已就绪" if configured else "当前使用本地占位生成；配置 AI_BASE_URL、AI_MODEL 和 AI_API_KEY 后可接入真实模型。",
+    }
 
 
 @app.post("/api/ai/workbench")
