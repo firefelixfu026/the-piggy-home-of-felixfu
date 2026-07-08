@@ -36,6 +36,7 @@ class Article(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    cover_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     date: Mapped[str] = mapped_column(String(20), nullable=False)
     read_time: Mapped[str] = mapped_column(String(30), default="3 min")
     status: Mapped[str] = mapped_column(String(20), default="published")

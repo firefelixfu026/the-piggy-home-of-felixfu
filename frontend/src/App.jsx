@@ -35,6 +35,7 @@ const createEmptyArticleForm = () => ({
   title: '',
   summary: '',
   content: '',
+  coverUrl: '',
   tags: '',
   date: new Date().toISOString().slice(0, 10),
   readTime: '3 min',
@@ -513,6 +514,7 @@ function App() {
       title: article.title,
       summary: article.summary,
       content: article.content,
+      coverUrl: article.coverUrl || '',
       tags: article.tags.join(', '),
       date: article.date,
       readTime: article.readTime,
@@ -535,6 +537,7 @@ function App() {
       title: articleForm.title,
       summary: articleForm.summary,
       content: articleForm.content,
+      coverUrl: articleForm.coverUrl,
       tags: articleForm.tags
         .split(/[,，]/)
         .map((tag) => tag.trim())
@@ -865,6 +868,7 @@ function Overview({ profile, articles }) {
         <div className="article-list compact">
           {articles.slice(0, 3).map((article) => (
             <article className="article-card" key={article.id}>
+              {article.coverUrl && <ArticleCover article={article} />}
               <span className="date">{article.date}</span>
               <h3>{article.title}</h3>
               <p>{article.summary}</p>
@@ -878,6 +882,14 @@ function Overview({ profile, articles }) {
         </div>
       </section>
     </section>
+  );
+}
+
+function ArticleCover({ article, size = 'normal' }) {
+  return (
+    <figure className={`article-cover ${size === 'large' ? 'large' : ''}`.trim()}>
+      <MarkdownImage src={article.coverUrl} alt={`${article.title} 封面图`} />
+    </figure>
   );
 }
 
@@ -996,6 +1008,7 @@ function ArticleWorkspace({
         <div className="article-list">
           {articles.map((article) => (
             <article className="article-card article-preview" key={article.id}>
+              {article.coverUrl && <ArticleCover article={article} />}
               <div className="article-meta">
                 <span>{article.date}</span>
                 <span>{article.readTime}</span>
@@ -1052,6 +1065,7 @@ function ArticleDetail({
       {interactionMessage && <p className="interaction-message">{interactionMessage}</p>}
 
       <article className="article-card article-detail-card">
+        {article.coverUrl && <ArticleCover article={article} size="large" />}
         <div className="article-meta">
           <span>{article.date}</span>
           <span>{article.readTime}</span>
@@ -1960,6 +1974,21 @@ function AdminWorkspace({
               required
             />
           </label>
+
+          <label>
+            <span>封面图地址</span>
+            <input
+              value={articleForm.coverUrl}
+              onChange={(event) => updateArticleForm('coverUrl', event.target.value)}
+              placeholder="/articles/git-workflow.svg 或 https://..."
+            />
+          </label>
+
+          {articleForm.coverUrl.trim() && (
+            <div className="article-form-cover-preview">
+              <MarkdownImage src={articleForm.coverUrl.trim()} alt="封面图预览" />
+            </div>
+          )}
 
           <label>
             <span>正文</span>

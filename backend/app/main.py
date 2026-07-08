@@ -87,6 +87,7 @@ class ArticleIn(BaseModel):
     title: str
     summary: str
     content: str
+    coverUrl: str = ""
     tags: list[str] = []
     date: str | None = None
     readTime: str = "3 min"
@@ -322,6 +323,7 @@ def create_admin_article(
         title=title,
         summary=_required_text(payload.summary, "Article summary is required"),
         content=_required_text(payload.content, "Article content is required"),
+        cover_url=_optional_text(payload.coverUrl),
         date=(payload.date or datetime.utcnow().date().isoformat()).strip(),
         read_time=(payload.readTime or "3 min").strip(),
         status=payload.status,
@@ -347,6 +349,7 @@ def update_admin_article(
     article.title = _required_text(payload.title, "Article title is required")
     article.summary = _required_text(payload.summary, "Article summary is required")
     article.content = _required_text(payload.content, "Article content is required")
+    article.cover_url = _optional_text(payload.coverUrl)
     article.date = (payload.date or article.date).strip()
     article.read_time = (payload.readTime or article.read_time).strip()
     article.status = payload.status
@@ -462,6 +465,7 @@ def _article_to_dict(article: Article, current_user: User | None = None) -> dict
         "title": article.title,
         "summary": article.summary,
         "content": article.content,
+        "coverUrl": article.cover_url or "",
         "tags": [tag.name for tag in sorted(article.tags, key=lambda item: item.name)],
         "date": article.date,
         "readTime": article.read_time,
@@ -576,6 +580,13 @@ def _required_text(value: str, message: str) -> str:
     if not cleaned:
         raise HTTPException(status_code=400, detail=message)
     return cleaned
+
+
+def _optional_text(value: str | None) -> str | None:
+    if not value:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
 
 
 def _verify_admin_setup_token(value: str) -> None:

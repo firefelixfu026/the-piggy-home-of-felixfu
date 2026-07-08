@@ -456,6 +456,31 @@ h3 {
   background: #ffffff;
 }
 
+.article-cover {
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #f8fafc;
+  aspect-ratio: 16 / 9;
+}
+
+.article-cover.large {
+  aspect-ratio: 21 / 9;
+}
+
+.article-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.article-cover .markdown-image-fallback {
+  height: 100%;
+  min-height: 120px;
+}
+
 
 .article-summary {
   margin-bottom: 0;
@@ -1044,6 +1069,25 @@ h3 {
 
 .article-preview-panel .markdown-content {
   background: #ffffff;
+}
+
+.article-form-cover-preview {
+  max-width: 420px;
+  overflow: hidden;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #f8fafc;
+  aspect-ratio: 16 / 9;
+}
+
+.article-form-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.article-form-cover-preview .markdown-image-fallback {
+  height: 100%;
 }
 
 .admin-panel-heading > span {
