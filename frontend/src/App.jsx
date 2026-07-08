@@ -101,6 +101,7 @@ function App() {
   const [adminCommentStatusFilter, setAdminCommentStatusFilter] = useState('all');
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [isSavingArticle, setIsSavingArticle] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -506,6 +507,38 @@ function App() {
     setAdminMessage('');
   }
 
+  async function uploadArticleCover(file) {
+    if (!file) return;
+    if (!authToken) {
+      setAdminMessage('请先登录管理员账号');
+      setActiveView('login');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    setIsUploadingImage(true);
+    setAdminMessage('正在上传图片...');
+    try {
+      const response = await fetch('/api/admin/uploads/images', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: formData
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAdminMessage(result.detail || '图片上传失败');
+        return;
+      }
+      updateArticleForm('coverUrl', result.url || '');
+      setAdminMessage('图片已上传，封面图地址已填入');
+    } catch {
+      setAdminMessage('后端服务不可用，图片上传失败');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }
+
   function startEditingArticle(article) {
     setActiveView('admin');
     setEditingArticleId(article.id);
@@ -807,8 +840,10 @@ function App() {
             updateArticleForm={updateArticleForm}
             editingArticleId={editingArticleId}
             isSavingArticle={isSavingArticle}
+            isUploadingImage={isUploadingImage}
             adminMessage={adminMessage}
             submitArticleForm={submitArticleForm}
+            uploadArticleCover={uploadArticleCover}
             resetArticleForm={resetArticleForm}
             startEditingArticle={startEditingArticle}
             deleteArticle={deleteArticle}
@@ -1884,8 +1919,10 @@ function AdminWorkspace({
   updateArticleForm,
   editingArticleId,
   isSavingArticle,
+  isUploadingImage,
   adminMessage,
   submitArticleForm,
+  uploadArticleCover,
   resetArticleForm,
   startEditingArticle,
   deleteArticle,
@@ -1981,6 +2018,19 @@ function AdminWorkspace({
               value={articleForm.coverUrl}
               onChange={(event) => updateArticleForm('coverUrl', event.target.value)}
               placeholder="/articles/git-workflow.svg 或 https://..."
+            />
+          </label>
+
+          <label className="file-upload-control">
+            <span>{isUploadingImage ? '上传中...' : '上传封面图'}</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              disabled={isUploadingImage}
+              onChange={(event) => {
+                uploadArticleCover(event.target.files?.[0]);
+                event.target.value = '';
+              }}
             />
           </label>
 

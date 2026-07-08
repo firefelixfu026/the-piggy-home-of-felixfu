@@ -1122,6 +1122,30 @@ h3 {
   padding: 0 12px;
 }
 
+.file-upload-control {
+  width: fit-content;
+  padding: 12px 16px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  color: #102033;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.file-upload-control:hover {
+  border-color: #1f7a6d;
+  color: #1f7a6d;
+}
+
+.file-upload-control input {
+  display: none;
+}
+
+.file-upload-control:has(input:disabled) {
+  cursor: progress;
+  opacity: 0.72;
+}
+
 .admin-form textarea {
   resize: vertical;
   padding: 10px 12px;

@@ -1,5 +1,15 @@
 ﻿# 版本日志
 
+## v1.5.9 - 后台图片上传
+
+- 后端新增管理员图片上传接口 `/api/admin/uploads/images`，只有管理员登录后才能使用。
+- 支持 JPG、PNG、WebP、GIF 和 SVG 图片，单文件上限 5 MB。
+- 上传文件会保存到后端 `/uploads` 目录，并通过站内 `/uploads/...` 地址访问。
+- Docker Compose 新增 `uploads_data` 持久卷，避免容器重建后上传图片丢失。
+- 前端 Nginx 新增 `/uploads/` 代理，并把请求体上限提高到 6 MB。
+- 管理后台文章表单新增“上传封面图”，上传成功后会自动填入封面图地址并显示预览。
+- 已执行 `python -m compileall backend\app`、`npm run build` 和 `docker compose config` 验证通过。
+
 ## v1.5.8 - 文章封面图字段和展示
 
 - 后端 `articles` 表新增 `cover_url` 字段，并通过启动时轻量迁移兼容已有数据库。

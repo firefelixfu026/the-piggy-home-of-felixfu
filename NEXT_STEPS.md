@@ -2,9 +2,30 @@
 
 当前项目状态：已经完成本地 MVP、FastAPI 接口骨架、小游戏嵌入、PostgreSQL 数据持久化、文章管理后台、邮箱登录鉴权、GitHub OAuth 登录、Docker Compose 一键启动、GitHub Actions 自动测试和阶段性文档整理；本地 Git 仓库已绑定 GitHub 远程仓库 `https://github.com/firefelixfu026/the-piggy-home-of-felixfu.git`。
 
-当前最新阶段：v1.5.8 文章封面图字段和展示。后端文章表已支持 `coverUrl`，管理员可在文章表单中填写封面图地址，首页、文章列表和文章详情页会展示封面。
+当前最新阶段：v1.5.9 后台图片上传。管理员可以在文章表单中选择本地图片上传，系统会生成站内 `/uploads/...` 地址并自动填入封面图字段；上传图片通过 Docker 数据卷持久化。
 
 GitHub 推送问题已通过 Clash `127.0.0.1:7897` 代理解决，排查细节已归档到 `docs/archive/GITHUB_PUSH_TROUBLESHOOTING.md`。
+
+## 28. v1.5.9 已完成：后台图片上传
+
+本阶段已完成：
+
+- 后端新增管理员图片上传接口 `/api/admin/uploads/images`，只有管理员 token 可以调用。
+- 支持 JPG、PNG、WebP、GIF 和 SVG 图片，单文件上限 5 MB。
+- 上传后的图片统一保存到后端 `/uploads` 目录，并通过站内 `/uploads/...` 地址访问。
+- Docker Compose 新增 `uploads_data` 持久卷，避免容器重建导致上传图片丢失。
+- 前端 Nginx 新增 `/uploads/` 代理，并把上传请求体上限提高到 6 MB。
+- 管理后台文章表单新增“上传封面图”，上传成功后会自动填入封面图地址并显示预览。
+
+部署后请重点测试：
+
+1. 登录管理员后台，进入文章发布或编辑区域。
+2. 点击“上传封面图”，选择一张小于 5 MB 的 JPG、PNG、WebP、GIF 或 SVG 图片。
+3. 确认上传成功后“封面图地址”自动变成 `/uploads/xxxx`，并且预览图片显示正常。
+4. 保存文章后回到首页、文章列表和文章详情页，确认封面图都能显示。
+5. 重启容器后再次打开同一篇文章，确认封面图没有丢失。
+
+下一阶段建议：把图片上传从“封面图”扩展到“正文插图”，管理员写 Markdown 时可以一键上传并插入 `![说明](/uploads/...)`。
 
 ## 27. v1.5.8 已完成：文章封面图字段和展示
 

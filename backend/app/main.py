@@ -1,14 +1,16 @@
 import hmac
 import os
 import re
+from pathlib import Path
 from datetime import datetime
 from typing import Literal
 from urllib.parse import urlencode
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -32,9 +34,20 @@ from app.seed import REACTION_TYPES, seed_database
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173").rstrip("/")
 ADMIN_SETUP_TOKEN = os.getenv("ADMIN_SETUP_TOKEN", "").strip()
 COMMENT_MAX_LENGTH = 300
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/svg+xml": ".svg",
+}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
 app = FastAPI(title="FelixFu Blog API", version="0.8.0")
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -368,6 +381,32 @@ def delete_admin_article(
     db.delete(article)
     db.commit()
     return {"status": "deleted", "articleId": article_id}
+
+
+@app.post("/api/admin/uploads/images")
+async def upload_admin_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_admin),
+) -> dict[str, str | int]:
+    content_type = (file.content_type or "").lower()
+    suffix = ALLOWED_IMAGE_TYPES.get(content_type)
+    if not suffix:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG, WebP, GIF, or SVG images are supported")
+
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="Image must be 5 MB or smaller")
+    if not content:
+        raise HTTPException(status_code=400, detail="Image file is empty")
+
+    original_suffix = Path(file.filename or "").suffix.lower()
+    if original_suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}:
+        suffix = ".jpg" if original_suffix == ".jpeg" else original_suffix
+
+    filename = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid4().hex}{suffix}"
+    destination = UPLOAD_DIR / filename
+    destination.write_bytes(content)
+    return {"url": f"/uploads/{filename}", "filename": filename, "size": len(content)}
 
 
 @app.get("/api/admin/comments")

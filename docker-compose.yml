@@ -35,6 +35,8 @@ services:
       GITHUB_ADMIN_EMAILS: ${GITHUB_ADMIN_EMAILS:-}
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,4 +65,5 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
 
