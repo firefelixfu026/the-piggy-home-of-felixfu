@@ -1131,6 +1131,12 @@ h3 {
   min-width: 0;
 }
 
+.ai-result-source {
+  margin: -4px 0 12px;
+  color: #6a7685;
+  font-size: 13px;
+}
+
 .ai-result-list,
 .ai-reference-list {
   display: grid;

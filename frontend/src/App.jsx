@@ -1063,7 +1063,7 @@ function Overview({ profile, articles, setActiveView }) {
     },
     {
       title: 'AI 工作台',
-      summary: '已支持文章灵感、摘要生成和标题优化的可交互流程，下一步接入真实模型。',
+      summary: '已支持文章灵感、摘要生成和标题优化，并可通过环境变量接入真实模型。',
       action: '打开 AI',
       view: 'ai',
       icon: Bot
@@ -2110,8 +2110,21 @@ function AiWorkspace({ news, articles }) {
         <section className="tool-panel ai-result-panel">
           <div className="admin-panel-heading">
             <h2>生成结果</h2>
-            <span>{result?.provider === 'local-placeholder' ? '本地占位' : 'AI'}</span>
+            <span>
+              {result?.status === 'real'
+                ? '真实模型'
+                : result?.status === 'fallback'
+                  ? '已回退'
+                  : result?.provider === 'local-placeholder'
+                    ? '本地占位'
+                    : 'AI'}
+            </span>
           </div>
+          {result?.model && (
+            <p className="ai-result-source">
+              来源：{result.provider} · {result.model}
+            </p>
+          )}
 
           {!result ? (
             <p className="empty-state">选择一种模式并点击生成，这里会显示候选内容。</p>

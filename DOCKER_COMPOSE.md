@@ -66,6 +66,15 @@ AI_PROVIDER_NAME=OpenAI
 AI_BASE_URL=https://api.openai.com/v1
 AI_MODEL=你的模型名
 AI_API_KEY=你的 API Key
+AI_REQUEST_TIMEOUT=25
+```
+
+AI 接口按 OpenAI 兼容的 `/chat/completions` 调用。如果你的服务商给的是完整 `/chat/completions` 地址，也可以直接填完整地址；如果调用失败，页面会提示失败原因并自动回退到本地候选内容。
+
+配置后可以检查状态：
+
+```powershell
+Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/ai/status'
 ```
 
 `.env` 已被 `.gitignore` 忽略，不会提交到 GitHub。

@@ -2,9 +2,29 @@
 
 当前项目状态：已经完成本地 MVP、FastAPI 接口骨架、小游戏嵌入、PostgreSQL 数据持久化、文章管理后台、邮箱登录鉴权、GitHub OAuth 登录、Docker Compose 一键启动、GitHub Actions 自动测试和阶段性文档整理；本地 Git 仓库已绑定 GitHub 远程仓库 `https://github.com/firefelixfu026/the-piggy-home-of-felixfu.git`。
 
-当前最新阶段：v1.7.1 首页刷新和 AI 配置状态。首页已同步展示当前站点能力，AI 工作台可显示真实模型配置状态；下一阶段接入真实模型调用。
+当前最新阶段：v1.7.2 真实 AI 模型调用。AI 工作台已支持 OpenAI 兼容 `/chat/completions` 接口；未配置或调用失败时仍会回退到本地候选，避免影响网站可用性。
 
 GitHub 推送问题已通过 Clash `127.0.0.1:7897` 代理解决，排查细节已归档到 `docs/archive/GITHUB_PUSH_TROUBLESHOOTING.md`。
+
+## 34. v1.7.2 已完成：真实 AI 模型调用
+
+本阶段已完成：
+
+- AI 工作台支持通过 `AI_BASE_URL`、`AI_MODEL` 和 `AI_API_KEY` 调用 OpenAI 兼容接口。
+- 后端新增真实模型调用、结构化 JSON 提示词、结果解析和字段清洗。
+- 真实模型调用失败时自动回退到本地候选内容，并在页面提示失败原因。
+- AI 结果区新增来源提示，可区分真实模型、本地占位和回退状态。
+- `.env.example`、`docker-compose.yml` 和 `DOCKER_COMPOSE.md` 已补充 `AI_REQUEST_TIMEOUT` 与真实模型配置说明。
+
+部署后请重点测试：
+
+1. 不配置真实模型时，AI 工作台仍显示本地占位模式并能生成候选。
+2. 配置真实模型后，`/api/ai/status` 显示真实模型已配置。
+3. 配置真实模型后，三种 AI 模式都能返回候选卡片。
+4. 故意填错 API Key 或模型名时，页面不会崩溃，会提示失败并回退到本地候选。
+5. 结果区能显示来源：真实模型、本地占位或已回退。
+
+下一阶段建议：v1.7.3 增加“AI 生成结果一键填入文章表单”，让摘要、标题和标签可以直接进入写作后台。
 
 ## 33. v1.7.1 已完成：首页刷新和 AI 配置状态
 

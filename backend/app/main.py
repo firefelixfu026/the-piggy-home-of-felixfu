@@ -1,10 +1,13 @@
 import hmac
+import json
 import os
 import re
 from pathlib import Path
 from datetime import datetime
 from typing import Literal
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
@@ -36,6 +39,10 @@ AI_PROVIDER_NAME = os.getenv("AI_PROVIDER_NAME", "local-placeholder").strip() or
 AI_BASE_URL = os.getenv("AI_BASE_URL", "").strip()
 AI_MODEL = os.getenv("AI_MODEL", "").strip()
 AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
+try:
+    AI_REQUEST_TIMEOUT = float(os.getenv("AI_REQUEST_TIMEOUT", "25") or "25")
+except ValueError:
+    AI_REQUEST_TIMEOUT = 25.0
 ADMIN_SETUP_TOKEN = os.getenv("ADMIN_SETUP_TOKEN", "").strip()
 COMMENT_MAX_LENGTH = 300
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
@@ -69,11 +76,11 @@ PROFILE = {
     "school": "浙江大学",
     "role": "个人博客 · 学习笔记 · AI 工作台 · 技术项目",
     "interests": ["技术写作", "AI 自动化", "长跑", "游戏"],
-    "summary": "这里沉淀学习笔记、项目复盘和个人实验。当前博客已经具备文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署和 AI 工作台骨架。",
+    "summary": "这里沉淀学习笔记、项目复盘和个人实验。当前博客已经具备文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署和可接真实模型的 AI 工作台。",
     "metrics": [
-        {"label": "当前阶段", "value": "v1.7.1"},
+        {"label": "当前阶段", "value": "v1.7.2"},
         {"label": "写作后台", "value": "已可用"},
-        {"label": "AI 模块", "value": "工作台骨架"},
+        {"label": "AI 模块", "value": "可接真实模型"},
     ],
 }
 
@@ -505,7 +512,7 @@ def get_ai_news() -> list[dict]:
 
 @app.get("/api/ai/status")
 def get_ai_status() -> dict[str, str | bool]:
-    configured = bool(AI_API_KEY and AI_MODEL and AI_BASE_URL)
+    configured = _is_ai_configured()
     return {
         "provider": AI_PROVIDER_NAME,
         "model": AI_MODEL or "未配置",
@@ -513,7 +520,7 @@ def get_ai_status() -> dict[str, str | bool]:
         "apiKeyConfigured": bool(AI_API_KEY),
         "configured": configured,
         "mode": "real-model-ready" if configured else "local-placeholder",
-        "message": "真实模型配置已就绪" if configured else "当前使用本地占位生成；配置 AI_BASE_URL、AI_MODEL 和 AI_API_KEY 后可接入真实模型。",
+        "message": "真实模型配置已就绪，将优先调用 OpenAI 兼容接口。" if configured else "当前使用本地占位生成；配置 AI_BASE_URL、AI_MODEL 和 AI_API_KEY 后可接入真实模型。",
     }
 
 
@@ -524,7 +531,39 @@ def run_ai_workbench(payload: AiWorkbenchIn) -> dict:
     tags = [_optional_text(tag) for tag in payload.tags if _optional_text(tag)]
     tone = _optional_text(payload.tone) or "技术学习"
 
-    if payload.mode == "ideas":
+    if _is_ai_configured():
+        try:
+            return _run_real_ai_workbench(payload, topic, content, tags, tone)
+        except RuntimeError as exc:
+            items = _build_local_ai_items(payload.mode, topic, content, tags, tone)
+            return {
+                "mode": payload.mode,
+                "provider": AI_PROVIDER_NAME,
+                "model": AI_MODEL,
+                "status": "fallback",
+                "message": f"真实模型调用失败，已返回本地候选：{exc}",
+                "items": items,
+            }
+
+    items = _build_local_ai_items(payload.mode, topic, content, tags, tone)
+    return {
+        "mode": payload.mode,
+        "provider": "local-placeholder",
+        "model": "local-template",
+        "status": "mock",
+        "message": "当前使用本地占位生成逻辑；配置真实模型后会优先返回 AI Provider 输出。",
+        "items": items,
+    }
+
+
+def _build_local_ai_items(
+    mode: Literal["ideas", "summary", "titles"],
+    topic: str,
+    content: str | None,
+    tags: list[str],
+    tone: str,
+) -> list[dict]:
+    if mode == "ideas":
         items = [
             {
                 "title": f"{topic}：从问题到实践的学习记录",
@@ -545,7 +584,7 @@ def run_ai_workbench(payload: AiWorkbenchIn) -> dict:
                 "action": "适合后续接入 AI 自动化模块。",
             },
         ]
-    elif payload.mode == "summary":
+    elif mode == "summary":
         source = content or topic
         compact = re.sub(r"\s+", " ", source).strip()
         if len(compact) > 120:
@@ -564,7 +603,7 @@ def run_ai_workbench(payload: AiWorkbenchIn) -> dict:
                 "action": "适合发布前快速检查文章主线。",
             },
         ]
-    else:
+    elif mode == "titles":
         items = [
             {
                 "title": f"{topic} 的一次完整复盘",
@@ -585,14 +624,149 @@ def run_ai_workbench(payload: AiWorkbenchIn) -> dict:
                 "action": "偏思考型标题。",
             },
         ]
+    else:
+        items = []
+    return items
 
+
+def _is_ai_configured() -> bool:
+    return bool(AI_API_KEY and AI_MODEL and AI_BASE_URL)
+
+
+def _run_real_ai_workbench(
+    payload: AiWorkbenchIn,
+    topic: str,
+    content: str | None,
+    tags: list[str],
+    tone: str,
+) -> dict:
+    prompt = _build_ai_prompt(payload.mode, topic, content, tags, tone)
+    response_payload = {
+        "model": AI_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": "你是一个帮助个人博客作者整理学习笔记、项目复盘和文章选题的中文写作助手。请严格输出 JSON。",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.7,
+    }
+    request = Request(
+        _ai_chat_url(),
+        data=json.dumps(response_payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {AI_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=AI_REQUEST_TIMEOUT) as response:
+            raw_body = response.read().decode("utf-8")
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")[:180]
+        raise RuntimeError(f"HTTP {exc.code} {detail}".strip()) from exc
+    except URLError as exc:
+        raise RuntimeError(str(exc.reason)) from exc
+    except TimeoutError as exc:
+        raise RuntimeError("请求超时") from exc
+
+    try:
+        body = json.loads(raw_body)
+        content_text = body["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("模型响应格式无法识别") from exc
+
+    items = _parse_ai_items(content_text)
     return {
         "mode": payload.mode,
-        "provider": "local-placeholder",
-        "status": "mock",
-        "message": "v1.7.0 先使用本地占位生成逻辑；接入真实模型后会替换为 AI Provider 输出。",
+        "provider": AI_PROVIDER_NAME,
+        "model": AI_MODEL,
+        "status": "real",
+        "message": "已由真实模型生成候选内容",
         "items": items,
     }
+
+
+def _build_ai_prompt(
+    mode: Literal["ideas", "summary", "titles"],
+    topic: str,
+    content: str | None,
+    tags: list[str],
+    tone: str,
+) -> str:
+    mode_guides = {
+        "ideas": "生成 3 个文章选题，每个包含标题、摘要、标签和下一步写作动作。",
+        "summary": "根据正文或主题生成 2 个摘要方案，一个短摘要，一个结构化摘要。",
+        "titles": "生成 3 个标题候选，并说明适合的文章气质或使用场景。",
+    }
+    tag_text = "、".join(tags) if tags else "由你建议"
+    content_text = content or "暂无正文，请根据主题生成。"
+    return (
+        f"任务：{mode_guides[mode]}\n"
+        f"主题：{topic}\n"
+        f"语气：{tone}\n"
+        f"参考标签：{tag_text}\n"
+        f"正文或背景：{content_text[:3000]}\n\n"
+        "只输出 JSON，不要输出 Markdown 代码块。格式如下："
+        '{"items":[{"title":"标题","summary":"摘要","tags":["标签1","标签2"],"action":"下一步动作"}]}'
+    )
+
+
+def _ai_chat_url() -> str:
+    base_url = AI_BASE_URL.rstrip("/")
+    if base_url.endswith("/chat/completions"):
+        return base_url
+    return f"{base_url}/chat/completions"
+
+
+def _parse_ai_items(content_text: str) -> list[dict]:
+    cleaned = content_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?", "", cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(r"```$", "", cleaned).strip()
+
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise RuntimeError("模型没有返回 JSON")
+
+    try:
+        parsed = json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("模型返回的 JSON 解析失败") from exc
+
+    raw_items = parsed.get("items")
+    if not isinstance(raw_items, list) or not raw_items:
+        raise RuntimeError("模型返回内容缺少 items")
+
+    items = []
+    for raw_item in raw_items[:5]:
+        if not isinstance(raw_item, dict):
+            continue
+        title = str(raw_item.get("title") or "").strip()
+        summary = str(raw_item.get("summary") or "").strip()
+        action = str(raw_item.get("action") or "").strip()
+        raw_tags = raw_item.get("tags") or []
+        if isinstance(raw_tags, str):
+            tags = [tag.strip() for tag in re.split(r"[,，、]", raw_tags) if tag.strip()]
+        elif isinstance(raw_tags, list):
+            tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()]
+        else:
+            tags = []
+        if title and summary:
+            items.append({
+                "title": title[:120],
+                "summary": summary[:500],
+                "tags": tags[:5],
+                "action": action[:180] or "可作为下一篇文章候选内容。",
+            })
+
+    if not items:
+        raise RuntimeError("模型返回内容为空")
+    return items
 
 
 @app.get("/api/game/card-war")
