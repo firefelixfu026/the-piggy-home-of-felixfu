@@ -1146,6 +1146,14 @@ h3 {
   opacity: 0.72;
 }
 
+.admin-inline-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: -6px;
+}
+
 .admin-form textarea {
   resize: vertical;
   padding: 10px 12px;

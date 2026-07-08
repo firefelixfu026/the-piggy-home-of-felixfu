@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -509,7 +509,7 @@ function App() {
     setAdminMessage('');
   }
 
-  async function uploadArticleCover(file) {
+  async function uploadAdminImage(file) {
     if (!file) return;
     if (!authToken) {
       setAdminMessage('请先登录管理员账号');
@@ -543,13 +543,46 @@ function App() {
         setAdminMessage(result.detail || fallbackMessage);
         return;
       }
-      updateArticleForm('coverUrl', result.url || '');
-      setAdminMessage('图片已上传，封面图地址已填入');
+      return result;
     } catch {
       setAdminMessage('后端服务不可用，图片上传失败');
+      return null;
     } finally {
       setIsUploadingImage(false);
     }
+  }
+
+  async function uploadArticleCover(file) {
+    const image = await uploadAdminImage(file);
+    if (!image?.url) return;
+    updateArticleForm('coverUrl', image.url);
+    setAdminMessage('图片已上传，封面图地址已填入');
+  }
+
+  async function uploadArticleContentImage(file, selectionStart, selectionEnd) {
+    const image = await uploadAdminImage(file);
+    if (!image?.url) return;
+
+    const fallbackAlt = '文章图片';
+    const filename = file?.name ? file.name.replace(/\.[^.]+$/, '').trim() : '';
+    const altText = filename || fallbackAlt;
+    const markdownImage = `![${altText}](${image.url})`;
+
+    setArticleForm((current) => {
+      const content = current.content || '';
+      const safeStart = Number.isFinite(selectionStart) ? Math.max(0, Math.min(selectionStart, content.length)) : content.length;
+      const safeEnd = Number.isFinite(selectionEnd) ? Math.max(safeStart, Math.min(selectionEnd, content.length)) : safeStart;
+      const before = content.slice(0, safeStart);
+      const after = content.slice(safeEnd);
+      const leadingBreak = before && !before.endsWith('\n') ? '\n\n' : '';
+      const trailingBreak = after && !after.startsWith('\n') ? '\n\n' : '';
+
+      return {
+        ...current,
+        content: `${before}${leadingBreak}${markdownImage}${trailingBreak}${after}`
+      };
+    });
+    setAdminMessage('图片已上传，Markdown 图片已插入正文');
   }
 
   function startEditingArticle(article) {
@@ -857,6 +890,7 @@ function App() {
             adminMessage={adminMessage}
             submitArticleForm={submitArticleForm}
             uploadArticleCover={uploadArticleCover}
+            uploadArticleContentImage={uploadArticleContentImage}
             resetArticleForm={resetArticleForm}
             startEditingArticle={startEditingArticle}
             deleteArticle={deleteArticle}
@@ -1936,6 +1970,7 @@ function AdminWorkspace({
   adminMessage,
   submitArticleForm,
   uploadArticleCover,
+  uploadArticleContentImage,
   resetArticleForm,
   startEditingArticle,
   deleteArticle,
@@ -1973,6 +2008,7 @@ function AdminWorkspace({
     Math.max(adminCommentPageGroups.length - 1, 0)
   );
   const visibleAdminComments = adminCommentPageGroups[currentAdminCommentPage] || [];
+  const contentTextareaRef = useRef(null);
 
   return (
     <section className="workspace">
@@ -2056,6 +2092,7 @@ function AdminWorkspace({
           <label>
             <span>正文</span>
             <textarea
+              ref={contentTextareaRef}
               value={articleForm.content}
               onChange={(event) => updateArticleForm('content', event.target.value)}
               placeholder="先支持纯文本/Markdown 内容，后续再加预览"
@@ -2063,6 +2100,26 @@ function AdminWorkspace({
               required
             />
           </label>
+
+          <div className="admin-inline-tools">
+            <label className="file-upload-control">
+              <span>{isUploadingImage ? '上传中...' : '上传正文图片'}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                disabled={isUploadingImage}
+                onChange={(event) => {
+                  const textarea = contentTextareaRef.current;
+                  uploadArticleContentImage(
+                    event.target.files?.[0],
+                    textarea?.selectionStart,
+                    textarea?.selectionEnd
+                  );
+                  event.target.value = '';
+                }}
+              />
+            </label>
+          </div>
 
           {articleForm.content.trim() && (
             <section className="article-preview-panel" aria-label="文章预览">
