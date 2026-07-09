@@ -930,10 +930,28 @@ h3 {
   color: #334155;
 }
 
+.comment em {
+  margin-left: 8px;
+  color: #6a7685;
+  font-size: 13px;
+  font-style: normal;
+}
+
 .comment span {
+  display: block;
   color: #5b6878;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.comment-reply-button {
+  min-height: 28px;
+  margin-top: 8px;
+  padding: 0 10px;
+  color: #1f7a6d;
+  border: 1px solid #b8d8d0;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .comment-form {
@@ -942,6 +960,28 @@ h3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+}
+
+.reply-target {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #b7dfd6;
+  border-radius: 8px;
+  color: #155f53;
+  background: #edfdf7;
+}
+
+.reply-target button {
+  min-width: auto;
+  min-height: 28px;
+  padding: 0 9px;
+  color: #155f53;
+  border: 1px solid #b7dfd6;
+  background: #ffffff;
 }
 
 .comment-form input {
@@ -1316,6 +1356,115 @@ h3 {
 .release-checks span.ready {
   color: #155f53;
   background: #dff4ed;
+}
+
+.analytics-grid,
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analytics-grid > div,
+.account-list article {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.analytics-grid h3 {
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.analytics-grid p,
+.account-list article {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.analytics-grid p {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 8px 0;
+  color: #5b6878;
+  border-top: 1px solid #e5eaf0;
+}
+
+.analytics-grid p span,
+.account-list p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ai-test-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 10px;
+}
+
+.ai-test-form input {
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+}
+
+.account-profile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.account-profile img,
+.account-avatar-fallback {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+}
+
+.account-profile img {
+  object-fit: cover;
+}
+
+.account-avatar-fallback {
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: #1f7a6d;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.account-profile h2 {
+  margin-bottom: 4px;
+}
+
+.account-profile p,
+.account-list span {
+  color: #6a7685;
+}
+
+.account-list {
+  display: grid;
+  gap: 10px;
+}
+
+.checkbox-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.checkbox-control input {
+  width: 18px;
+  height: 18px;
 }
 
 .admin-panel-heading {
@@ -1960,6 +2109,16 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .analytics-grid,
+  .account-grid,
+  .ai-test-form {
+    grid-template-columns: 1fr;
+  }
+
+  .account-profile {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
   .topbar {
     align-items: stretch;
     flex-direction: column;
@@ -2008,6 +2167,10 @@ h3 {
   }
 
   .release-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-profile {
     grid-template-columns: 1fr;
   }
 

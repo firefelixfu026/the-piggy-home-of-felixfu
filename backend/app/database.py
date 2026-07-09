@@ -44,8 +44,16 @@ def _ensure_schema_updates() -> None:
             connection.execute(text("ALTER TABLE articles ADD COLUMN view_count INTEGER DEFAULT 0 NOT NULL"))
         if "articles" in table_names and "cover_url" not in article_columns:
             connection.execute(text("ALTER TABLE articles ADD COLUMN cover_url TEXT"))
+        if "articles" in table_names and "category" not in article_columns:
+            connection.execute(text("ALTER TABLE articles ADD COLUMN category VARCHAR(80) DEFAULT '学习笔记' NOT NULL"))
+        if "articles" in table_names and "pinned" not in article_columns:
+            connection.execute(text("ALTER TABLE articles ADD COLUMN pinned BOOLEAN DEFAULT FALSE NOT NULL"))
         if "comments" in table_names and "status" not in comment_columns:
             connection.execute(text("ALTER TABLE comments ADD COLUMN status VARCHAR(20) DEFAULT 'approved' NOT NULL"))
+        if "comments" in table_names and "user_id" not in comment_columns:
+            connection.execute(text("ALTER TABLE comments ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL"))
+        if "comments" in table_names and "parent_id" not in comment_columns:
+            connection.execute(text("ALTER TABLE comments ADD COLUMN parent_id INTEGER REFERENCES comments(id) ON DELETE SET NULL"))
 
         connection.execute(
             text(

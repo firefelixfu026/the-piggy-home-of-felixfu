@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -27,6 +27,8 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     reactions: Mapped[list["UserReaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="user")
+    ai_generations: Mapped[list["AiGeneration"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Article(Base):
@@ -40,6 +42,8 @@ class Article(Base):
     date: Mapped[str] = mapped_column(String(20), nullable=False)
     read_time: Mapped[str] = mapped_column(String(30), default="3 min")
     status: Mapped[str] = mapped_column(String(20), default="published")
+    category: Mapped[str] = mapped_column(String(80), default="学习笔记")
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     view_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -74,12 +78,16 @@ class Comment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     article_id: Mapped[str] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True)
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("comments.id", ondelete="SET NULL"), index=True, nullable=True)
     author_name: Mapped[str] = mapped_column(String(100), default="访客")
     content: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     article: Mapped[Article] = relationship(back_populates="comments")
+    user: Mapped[User | None] = relationship(back_populates="comments")
+    parent: Mapped["Comment | None"] = relationship(remote_side=[id])
 
 
 class UserReaction(Base):
@@ -106,3 +114,18 @@ class ReactionCounter(Base):
     count: Mapped[int] = mapped_column(Integer, default=0)
 
     article: Mapped[Article] = relationship(back_populates="reactions")
+
+
+class AiGeneration(Base):
+    __tablename__ = "ai_generations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    task: Mapped[str] = mapped_column(String(60), nullable=False)
+    source: Mapped[str] = mapped_column(String(80), default="local-placeholder")
+    title: Mapped[str] = mapped_column(String(255), default="")
+    prompt: Mapped[str] = mapped_column(Text, default="")
+    result: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped[User] = relationship(back_populates="ai_generations")

@@ -46,7 +46,9 @@ const createEmptyArticleForm = () => ({
   tags: '',
   date: new Date().toISOString().slice(0, 10),
   readTime: '3 min',
-  status: 'published'
+  status: 'published',
+  category: '学习笔记',
+  pinned: false
 });
 
 const publicNavItems = [
@@ -58,6 +60,7 @@ const publicNavItems = [
 ];
 
 const adminNavItem = { id: 'admin', label: '管理', icon: FilePenLine };
+const accountNavItem = { id: 'account', label: '账号', icon: UserRound };
 
 const COMMENT_MAX_LENGTH = 300;
 const COMMENT_PAGE_UNITS = 5;
@@ -95,11 +98,20 @@ function formatFileSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
+function aiTaskLabel(task) {
+  return {
+    polish: '润色',
+    continue: '续写',
+    outline: '大纲'
+  }[task] || '写作辅助';
+}
+
 
 function App() {
   const [activeView, setActiveView] = useState('overview');
   const [query, setQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState(ALL_FILTER);
+  const [selectedCategory, setSelectedCategory] = useState(ALL_FILTER);
   const [selectedArchive, setSelectedArchive] = useState(ALL_ARCHIVE);
   const [profile, setProfile] = useState(fallbackProfile);
   const [articles, setArticles] = useState(fallbackArticles);
@@ -107,6 +119,7 @@ function App() {
   const [reactions, setReactions] = useState({});
   const [reactionCounts, setReactionCounts] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [commentReplyTargets, setCommentReplyTargets] = useState({});
   const [comments, setComments] = useState({
     'react-fastapi-mvp': [{ id: 'local-1', authorName: '访客', content: '第一版先把前后端结构跑起来，后续再接数据库。' }]
   });
@@ -128,6 +141,17 @@ function App() {
   const [isLoadingUploadedImages, setIsLoadingUploadedImages] = useState(false);
   const [articleDraftNotice, setArticleDraftNotice] = useState('');
   const [aiGenerationHistory, setAiGenerationHistory] = useState([]);
+  const [accountActivity, setAccountActivity] = useState(null);
+  const [adminStats, setAdminStats] = useState(null);
+  const [aiSettings, setAiSettings] = useState(null);
+  const [aiTestForm, setAiTestForm] = useState({
+    providerName: '',
+    baseUrl: '',
+    model: '',
+    apiKey: ''
+  });
+  const [aiTestMessage, setAiTestMessage] = useState('');
+  const [isTestingAi, setIsTestingAi] = useState(false);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -148,10 +172,11 @@ function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   const visibleNavItems = useMemo(() => {
+    const baseItems = currentUser ? [...publicNavItems.filter((item) => item.id !== 'login'), accountNavItem] : publicNavItems;
     if (currentUser?.role === 'admin') {
-      return [...publicNavItems.filter((item) => item.id !== 'login'), adminNavItem];
+      return [...baseItems, adminNavItem];
     }
-    return publicNavItems;
+    return baseItems;
   }, [currentUser?.role]);
 
   useEffect(() => {
@@ -232,8 +257,17 @@ function App() {
     if (activeView === 'admin' && currentUser?.role === 'admin') {
       refreshAdminComments();
       refreshUploadedImages();
+      refreshAdminStats();
+      refreshAiSettings();
+      refreshAiGenerationHistory();
     }
   }, [activeView, currentUser?.role, authToken]);
+
+  useEffect(() => {
+    if (activeView === 'account' && currentUser) {
+      refreshAccountActivity();
+    }
+  }, [activeView, currentUser?.id, authToken]);
 
   useEffect(() => {
     if (currentUser?.role !== 'admin') return;
@@ -306,6 +340,105 @@ function App() {
 
   function getAuthHeaders() {
     return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  }
+
+  async function refreshAccountActivity() {
+    if (!authToken) return;
+    try {
+      const response = await fetch('/api/me/activity', {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        setAccountActivity(await response.json());
+      }
+    } catch {
+      setAccountActivity(null);
+    }
+  }
+
+  async function refreshAdminStats() {
+    if (currentUser?.role !== 'admin') return;
+    try {
+      const response = await fetch('/api/admin/stats', {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        setAdminStats(await response.json());
+      }
+    } catch {
+      setAdminStats(null);
+    }
+  }
+
+  async function refreshAiSettings() {
+    if (currentUser?.role !== 'admin') return;
+    try {
+      const response = await fetch('/api/admin/ai/settings', {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        setAiSettings(payload);
+        setAiTestForm((current) => ({
+          ...current,
+          providerName: current.providerName || payload.provider || '',
+          model: current.model || payload.model || ''
+        }));
+      }
+    } catch {
+      setAiSettings(null);
+    }
+  }
+
+  async function refreshAiGenerationHistory() {
+    if (currentUser?.role !== 'admin') return;
+    try {
+      const response = await fetch('/api/admin/ai/history', {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const persisted = await response.json();
+        setAiGenerationHistory((current) => {
+          const localEntries = current.filter((entry) => entry.beforeContent);
+          const localIds = new Set(localEntries.map((entry) => String(entry.historyId || entry.id)));
+          const persistedEntries = persisted
+            .filter((entry) => !localIds.has(String(entry.id)))
+            .map((entry) => ({
+              id: `persisted-${entry.id}`,
+              historyId: entry.id,
+              task: aiTaskLabel(entry.task),
+              mode: '已记录',
+              source: entry.source,
+              title: entry.title,
+              createdAt: entry.createdAt
+            }));
+          return [...localEntries, ...persistedEntries].slice(0, 12);
+        });
+      }
+    } catch {
+      // Keep local history available if the API is temporarily unavailable.
+    }
+  }
+
+  async function testAiSettings(event) {
+    event?.preventDefault();
+    if (currentUser?.role !== 'admin') return;
+    setIsTestingAi(true);
+    setAiTestMessage('正在测试真实模型连通性...');
+    try {
+      const response = await fetch('/api/admin/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(aiTestForm)
+      });
+      const payload = await response.json().catch(() => ({}));
+      setAiTestMessage(payload.message || (response.ok ? '测试完成' : '测试失败'));
+      await refreshAiSettings();
+    } catch {
+      setAiTestMessage('后端服务不可用，无法测试 AI 配置');
+    } finally {
+      setIsTestingAi(false);
+    }
   }
 
   function showLoginRequired(action) {
@@ -410,6 +543,11 @@ function App() {
     return [ALL_FILTER, ...uniqueTags];
   }, [articles]);
 
+  const categories = useMemo(() => {
+    const uniqueCategories = new Set(articles.map((article) => article.category || '学习笔记'));
+    return [ALL_FILTER, ...uniqueCategories];
+  }, [articles]);
+
   const archiveOptions = useMemo(() => {
     const counts = new Map();
     articles.forEach((article) => {
@@ -431,11 +569,12 @@ function App() {
 
     return articles.filter((article) => {
       const tagMatched = selectedTag === ALL_FILTER || article.tags.includes(selectedTag);
+      const categoryMatched = selectedCategory === ALL_FILTER || (article.category || '学习笔记') === selectedCategory;
       const archiveMatched = selectedArchive === ALL_ARCHIVE || getArticleMonth(article.date) === selectedArchive;
-      const text = `${article.title} ${article.summary} ${article.content} ${article.tags.join(' ')}`.toLowerCase();
-      return tagMatched && archiveMatched && (!normalizedQuery || text.includes(normalizedQuery));
+      const text = `${article.title} ${article.summary} ${article.content} ${article.category || ''} ${article.tags.join(' ')}`.toLowerCase();
+      return categoryMatched && tagMatched && archiveMatched && (!normalizedQuery || text.includes(normalizedQuery));
     });
-  }, [articles, query, selectedTag, selectedArchive]);
+  }, [articles, query, selectedCategory, selectedTag, selectedArchive]);
 
   async function toggleReaction(articleId, type) {
     if (!authToken) {
@@ -506,6 +645,7 @@ function App() {
     }
 
     const value = commentDrafts[articleId]?.trim();
+    const replyTarget = commentReplyTargets[articleId] || null;
     if (!value) return;
     if (value.length > COMMENT_MAX_LENGTH) {
       window.alert(`评论最多 ${COMMENT_MAX_LENGTH} 字`);
@@ -518,7 +658,7 @@ function App() {
       const response = await fetch(`/api/articles/${articleId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ content: value })
+        body: JSON.stringify({ content: value, parentId: replyTarget?.id || null })
       });
 
       if (response.ok) {
@@ -528,6 +668,7 @@ function App() {
           [articleId]: result.comments
         }));
         setInteractionMessage(result.message || '评论已提交，审核通过后会公开显示');
+        setCommentReplyTargets((current) => ({ ...current, [articleId]: null }));
         setCommentPages((current) => ({ ...current, [articleId]: Number.MAX_SAFE_INTEGER }));
         return;
       }
@@ -610,11 +751,7 @@ function App() {
         return;
       }
 
-      const taskLabel = {
-        polish: '润色',
-        continue: '续写',
-        outline: '大纲'
-      }[task] || '写作辅助';
+      const taskLabel = aiTaskLabel(task);
       const sourceLabel = payload.status === 'real' ? '真实模型' : payload.status === 'fallback' ? '回退结果' : '本地占位';
       const modeLabel = {
         append: '追加',
@@ -651,6 +788,7 @@ function App() {
       setAiGenerationHistory((current) => [
         {
           id: `${Date.now()}-${task}`,
+          historyId: payload.historyId,
           task: taskLabel,
           mode: modeLabel,
           source: sourceLabel,
@@ -660,6 +798,7 @@ function App() {
         },
         ...current,
       ].slice(0, 8));
+      refreshAiGenerationHistory();
       setAdminMessage(`${payload.message || `AI ${taskLabel}结果已生成`}，已${modeLabel}到正文`);
     } catch {
       setAdminMessage('后端服务不可用，AI 写作辅助失败');
@@ -720,7 +859,9 @@ function App() {
         tags: mergedTags.join(', '),
         date: current.date || new Date().toISOString().slice(0, 10),
         readTime: current.readTime || '3 min',
-        status: 'draft'
+        status: 'draft',
+        category: current.category || 'AI 草稿',
+        pinned: false
       };
     });
     setAdminMessage('AI 候选已填入文章表单，状态已设为草稿');
@@ -816,7 +957,9 @@ function App() {
       tags: article.tags.join(', '),
       date: article.date,
       readTime: article.readTime,
-      status: article.status || 'published'
+      status: article.status || 'published',
+      category: article.category || '学习笔记',
+      pinned: Boolean(article.pinned)
     });
   }
 
@@ -842,7 +985,9 @@ function App() {
         .filter(Boolean),
       date: articleForm.date,
       readTime: articleForm.readTime,
-      status: articleForm.status
+      status: articleForm.status,
+      category: articleForm.category,
+      pinned: articleForm.pinned
     };
 
     try {
@@ -1114,6 +1259,9 @@ function App() {
         {activeView === 'articles' && (
           <ArticleWorkspace
             articles={filteredArticles}
+            categories={categories}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
             tags={tags}
             selectedTag={selectedTag}
             setSelectedTag={setSelectedTag}
@@ -1128,7 +1276,9 @@ function App() {
             toggleReaction={toggleReaction}
             comments={comments}
             commentDrafts={commentDrafts}
+            commentReplyTargets={commentReplyTargets}
             setCommentDrafts={setCommentDrafts}
+            setCommentReplyTargets={setCommentReplyTargets}
             submitComment={submitComment}
             interactionMessage={interactionMessage}
             currentUser={currentUser}
@@ -1146,6 +1296,15 @@ function App() {
         )}
 
         {activeView === 'game' && <GameWorkspace />}
+
+        {activeView === 'account' && currentUser && (
+          <AccountWorkspace
+            currentUser={currentUser}
+            accountActivity={accountActivity}
+            refreshAccountActivity={refreshAccountActivity}
+            setActiveView={setActiveView}
+          />
+        )}
 
         {activeView === 'login' && (
           <LoginWorkspace
@@ -1176,6 +1335,15 @@ function App() {
             isLoadingUploadedImages={isLoadingUploadedImages}
             articleDraftNotice={articleDraftNotice}
             adminMessage={adminMessage}
+            adminStats={adminStats}
+            refreshAdminStats={refreshAdminStats}
+            aiSettings={aiSettings}
+            aiTestForm={aiTestForm}
+            setAiTestForm={setAiTestForm}
+            aiTestMessage={aiTestMessage}
+            isTestingAi={isTestingAi}
+            testAiSettings={testAiSettings}
+            refreshAiSettings={refreshAiSettings}
             aiGenerationHistory={aiGenerationHistory}
             submitArticleForm={submitArticleForm}
             uploadArticleCover={uploadArticleCover}
@@ -1339,6 +1507,9 @@ function ArticleCover({ article, size = 'normal' }) {
 
 function ArticleWorkspace({
   articles = [],
+  categories = [],
+  selectedCategory = ALL_FILTER,
+  setSelectedCategory = () => {},
   tags = [],
   selectedTag = ALL_FILTER,
   setSelectedTag = () => {},
@@ -1353,7 +1524,9 @@ function ArticleWorkspace({
   toggleReaction,
   comments,
   commentDrafts,
+  commentReplyTargets,
   setCommentDrafts,
+  setCommentReplyTargets,
   submitComment,
   interactionMessage,
   currentUser,
@@ -1375,7 +1548,9 @@ function ArticleWorkspace({
         toggleReaction={toggleReaction}
         comments={comments}
         commentDrafts={commentDrafts}
+        commentReplyTargets={commentReplyTargets}
         setCommentDrafts={setCommentDrafts}
+        setCommentReplyTargets={setCommentReplyTargets}
         submitComment={submitComment}
         interactionMessage={interactionMessage}
         currentUser={currentUser}
@@ -1405,6 +1580,23 @@ function ArticleWorkspace({
             }}
           >
             {tag}
+          </button>
+        ))}
+      </div>
+
+      <div className="archive-filter" aria-label="文章分类筛选">
+        {categories.map((category) => (
+          <button
+            key={category}
+            className={selectedCategory === category ? 'archive-button active' : 'archive-button'}
+            type="button"
+            onClick={() => {
+              setSelectedCategory(category);
+              setSelectedArticleId(null);
+            }}
+          >
+            <span>{category === ALL_FILTER ? '全部分类' : category}</span>
+            <strong>{category === ALL_FILTER ? articles.length : articles.filter((article) => (article.category || '学习笔记') === category).length}</strong>
           </button>
         ))}
       </div>
@@ -1454,6 +1646,8 @@ function ArticleWorkspace({
             <article className="article-card article-preview" key={article.id}>
               {article.coverUrl && <ArticleCover article={article} />}
               <div className="article-meta">
+                {article.pinned && <span>置顶</span>}
+                <span>{article.category || '学习笔记'}</span>
                 <span>{article.date}</span>
                 <span>{article.readTime}</span>
                 <span><Eye size={15} /> {article.viewCount || 0}</span>
@@ -1482,7 +1676,9 @@ function ArticleDetail({
   toggleReaction,
   comments,
   commentDrafts,
+  commentReplyTargets,
   setCommentDrafts,
+  setCommentReplyTargets,
   submitComment,
   interactionMessage,
   currentUser,
@@ -1498,6 +1694,7 @@ function ArticleDetail({
   );
   const visibleComments = commentPageGroups[currentCommentPage] || [];
   const draftLength = (commentDrafts[article.id] || '').length;
+  const replyTarget = commentReplyTargets?.[article.id] || null;
 
   return (
     <section className="workspace article-detail-workspace">
@@ -1511,6 +1708,8 @@ function ArticleDetail({
       <article className="article-card article-detail-card">
         {article.coverUrl && <ArticleCover article={article} size="large" />}
         <div className="article-meta">
+          {article.pinned && <span>置顶</span>}
+          <span>{article.category || '学习笔记'}</span>
           <span>{article.date}</span>
           <span>{article.readTime}</span>
           <span><Eye size={15} /> {article.viewCount || 0}</span>
@@ -1564,10 +1763,27 @@ function ArticleDetail({
             <span>评论</span>
           </div>
           {visibleComments.map((comment, index) => (
-            <p className="comment" key={comment.id || `${article.id}-${currentCommentPage}-${index}`}>
-              <strong>{comment.authorName || '访客'}：</strong>
+            <div className="comment" key={comment.id || `${article.id}-${currentCommentPage}-${index}`}>
+              <div>
+                <strong>{comment.authorName || '访客'}：</strong>
+                {comment.replyToAuthor && <em>回复 {comment.replyToAuthor}</em>}
+              </div>
               <span>{comment.content}</span>
-            </p>
+              {currentUser && (
+                <button
+                  className="comment-reply-button"
+                  type="button"
+                  onClick={() =>
+                    setCommentReplyTargets((current) => ({
+                      ...current,
+                      [article.id]: { id: comment.id, authorName: comment.authorName || '访客' }
+                    }))
+                  }
+                >
+                  回复
+                </button>
+              )}
+            </div>
           ))}
           {articleComments.length === 0 && <p className="comment empty-comment">暂无评论</p>}
           {commentPageGroups.length > 1 && (
@@ -1600,6 +1816,17 @@ function ArticleDetail({
             </div>
           )}
           <div className="comment-form">
+            {replyTarget && (
+              <div className="reply-target">
+                <span>回复 {replyTarget.authorName}</span>
+                <button
+                  type="button"
+                  onClick={() => setCommentReplyTargets((current) => ({ ...current, [article.id]: null }))}
+                >
+                  取消
+                </button>
+              </div>
+            )}
             <input
               value={commentDrafts[article.id] || ''}
               maxLength={COMMENT_MAX_LENGTH}
@@ -1609,7 +1836,7 @@ function ArticleDetail({
                   [article.id]: event.target.value
                 }))
               }
-              placeholder={currentUser ? '写一条评论' : '登录后才能评论'}
+              placeholder={currentUser ? (replyTarget ? `回复 ${replyTarget.authorName}` : '写一条评论') : '登录后才能评论'}
               aria-label={`评论 ${article.title}`}
             />
             <button type="button" onClick={() => submitComment(article.id)}>
@@ -2389,6 +2616,111 @@ function GameWorkspace() {
   );
 }
 
+function AccountWorkspace({ currentUser, accountActivity, refreshAccountActivity, setActiveView }) {
+  const summary = accountActivity?.summary || {};
+  const comments = accountActivity?.comments || [];
+  const reactions = accountActivity?.reactions || [];
+
+  return (
+    <section className="workspace account-workspace">
+      <div className="section-heading">
+        <p className="eyebrow">账号中心</p>
+        <h1>个人互动记录</h1>
+      </div>
+
+      <section className="tool-panel account-profile-panel">
+        <div className="account-profile">
+          {currentUser.avatarUrl ? (
+            <img src={currentUser.avatarUrl} alt={currentUser.displayName} />
+          ) : (
+            <div className="account-avatar-fallback">{(currentUser.displayName || 'F').slice(0, 1)}</div>
+          )}
+          <div>
+            <h2>{currentUser.displayName}</h2>
+            <p>{currentUser.email}</p>
+            <span>{currentUser.role === 'admin' ? '管理员' : '读者'}</span>
+          </div>
+          <button className="ghost-button" type="button" onClick={refreshAccountActivity}>
+            <RefreshCw size={16} />
+            <span>刷新</span>
+          </button>
+        </div>
+
+        <div className="release-metric-grid">
+          <div className="release-metric">
+            <span>评论</span>
+            <strong>{summary.comments || 0}</strong>
+          </div>
+          <div className="release-metric">
+            <span>互动</span>
+            <strong>{summary.reactions || 0}</strong>
+          </div>
+          <div className="release-metric">
+            <span>收藏</span>
+            <strong>{summary.favorites || 0}</strong>
+          </div>
+        </div>
+      </section>
+
+      <div className="account-grid">
+        <section className="tool-panel">
+          <div className="admin-panel-heading">
+            <h2>我的评论</h2>
+            <span>{comments.length} 条</span>
+          </div>
+          {comments.length === 0 ? (
+            <p className="empty-state">还没有评论</p>
+          ) : (
+            <div className="account-list">
+              {comments.map((comment) => (
+                <article key={comment.id}>
+                  <strong>{comment.articleTitle}</strong>
+                  <p>{comment.content}</p>
+                  <span>{comment.status === 'pending' ? '待审核' : '已通过'} · {new Date(comment.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="tool-panel">
+          <div className="admin-panel-heading">
+            <h2>我的互动</h2>
+            <span>{reactions.length} 条</span>
+          </div>
+          {reactions.length === 0 ? (
+            <p className="empty-state">还没有点赞、收藏或提问</p>
+          ) : (
+            <div className="account-list">
+              {reactions.map((reaction) => (
+                <article key={reaction.id}>
+                  <strong>{reaction.articleTitle}</strong>
+                  <p>{reactionLabel(reaction.type)}</p>
+                  <span>{new Date(reaction.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <button className="primary-action" type="button" onClick={() => setActiveView('articles')}>
+        <BookOpen size={17} />
+        <span>继续看文章</span>
+      </button>
+    </section>
+  );
+}
+
+function reactionLabel(type) {
+  return {
+    like: '点赞',
+    favorite: '收藏',
+    downvote: '点踩',
+    question: '提出疑问'
+  }[type] || type;
+}
+
 function LoginWorkspace({
   authMode,
   setAuthMode,
@@ -2537,6 +2869,15 @@ function AdminWorkspace({
   isLoadingUploadedImages,
   articleDraftNotice,
   adminMessage,
+  adminStats,
+  refreshAdminStats,
+  aiSettings,
+  aiTestForm,
+  setAiTestForm,
+  aiTestMessage,
+  isTestingAi,
+  testAiSettings,
+  refreshAiSettings,
   aiGenerationHistory,
   submitArticleForm,
   uploadArticleCover,
@@ -2688,6 +3029,93 @@ function AdminWorkspace({
             </span>
           ))}
         </div>
+      </section>
+
+      <section className="admin-panel analytics-panel">
+        <div className="admin-panel-heading">
+          <h2>站点统计</h2>
+          <button className="ghost-button" type="button" onClick={refreshAdminStats}>
+            <RefreshCw size={16} />
+            <span>刷新</span>
+          </button>
+        </div>
+        <div className="release-metric-grid">
+          {[
+            ['总阅读', adminStats?.summary?.views || 0],
+            ['用户', adminStats?.summary?.users || 0],
+            ['评论', adminStats?.summary?.comments || 0],
+            ['待审评论', adminStats?.summary?.pendingComments || 0],
+            ['草稿', adminStats?.summary?.drafts || 0]
+          ].map(([label, value]) => (
+            <div className="release-metric" key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+        <div className="analytics-grid">
+          <div>
+            <h3>热门文章</h3>
+            {(adminStats?.topArticles || []).map((article) => (
+              <p key={article.id}>
+                <span>{article.title}</span>
+                <strong>{article.views} 次</strong>
+              </p>
+            ))}
+          </div>
+          <div>
+            <h3>分类分布</h3>
+            {(adminStats?.categories || []).map((category) => (
+              <p key={category.name}>
+                <span>{category.name}</span>
+                <strong>{category.count} 篇</strong>
+              </p>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="admin-panel ai-settings-panel">
+        <div className="admin-panel-heading">
+          <h2>AI 设置和测试</h2>
+          <button className="ghost-button" type="button" onClick={refreshAiSettings}>
+            <RefreshCw size={16} />
+            <span>读取配置</span>
+          </button>
+        </div>
+        <div className={aiSettings?.configured ? 'ai-status ready' : 'ai-status'}>
+          <span>{aiSettings?.configured ? '真实模型已配置' : '真实模型未完整配置'}</span>
+          <strong>{aiSettings?.provider || 'local-placeholder'} · {aiSettings?.model || '未配置'}</strong>
+          <p>{aiSettings?.note || '密钥不会从接口返回；请用一次性测试框验证真实模型。'}</p>
+        </div>
+        <form className="ai-test-form" onSubmit={testAiSettings}>
+          <input
+            value={aiTestForm.providerName}
+            onChange={(event) => setAiTestForm((current) => ({ ...current, providerName: event.target.value }))}
+            placeholder="Provider 名称"
+          />
+          <input
+            value={aiTestForm.baseUrl}
+            onChange={(event) => setAiTestForm((current) => ({ ...current, baseUrl: event.target.value }))}
+            placeholder="Base URL，例如 https://api.openai.com/v1"
+          />
+          <input
+            value={aiTestForm.model}
+            onChange={(event) => setAiTestForm((current) => ({ ...current, model: event.target.value }))}
+            placeholder="模型名"
+          />
+          <input
+            type="password"
+            value={aiTestForm.apiKey}
+            onChange={(event) => setAiTestForm((current) => ({ ...current, apiKey: event.target.value }))}
+            placeholder="API Key，仅用于本次测试"
+          />
+          <button className="primary-action" type="submit" disabled={isTestingAi}>
+            <Bot size={17} />
+            <span>{isTestingAi ? '测试中' : '测试 AI'}</span>
+          </button>
+        </form>
+        {aiTestMessage && <p className="admin-message">{aiTestMessage}</p>}
       </section>
 
       <div className="admin-layout">
@@ -2862,6 +3290,14 @@ function AdminWorkspace({
 
           <div className="admin-form-grid">
             <label>
+              <span>分类</span>
+              <input
+                value={articleForm.category}
+                onChange={(event) => updateArticleForm('category', event.target.value)}
+                placeholder="学习笔记 / 项目复盘 / AI"
+              />
+            </label>
+            <label>
               <span>标签</span>
               <input
                 value={articleForm.tags}
@@ -2894,6 +3330,14 @@ function AdminWorkspace({
                 <option value="published">已发布</option>
                 <option value="draft">草稿</option>
               </select>
+            </label>
+            <label className="checkbox-control">
+              <input
+                type="checkbox"
+                checked={articleForm.pinned}
+                onChange={(event) => updateArticleForm('pinned', event.target.checked)}
+              />
+              <span>置顶文章</span>
             </label>
           </div>
 
@@ -2962,7 +3406,7 @@ function AdminWorkspace({
                     <strong>{entry.task}</strong>
                     <span>{entry.mode} · {entry.source} · {new Date(entry.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
                   </div>
-                  {index === 0 && (
+                  {index === 0 && entry.beforeContent !== undefined && (
                     <button className="ghost-button" type="button" onClick={() => undoLatestArticleAiResult(entry)}>
                       <RefreshCw size={16} />
                       <span>撤回</span>

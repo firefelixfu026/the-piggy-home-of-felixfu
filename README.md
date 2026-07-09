@@ -4,7 +4,7 @@
 
 这是付江樊的综合型个人博客项目，目标是从 6 小时内可展示 MVP 起步，逐步扩展为支持文章发布、搜索、评论、点赞、收藏、点踩、管理员登录、GitHub 登录、AI 自动化内容、小游戏和云服务器部署的完整前后端分离系统。
 
-当前阶段：v2.0.0 发布候选。项目已经形成文章发布、Markdown/LaTeX、图片上传、评论审核、账号互动、管理员后台、GitHub OAuth、云端部署、自动发布和 AI 写作辅助的完整基础闭环。
+当前阶段：v2.1.0 mentor 验收收尾版。项目已经形成文章发布、分类归档、Markdown/LaTeX、图片上传、评论回复和审核、账号中心、管理员后台、站点统计、GitHub OAuth、云端部署、自动发布和 AI 写作辅助的完整演示闭环。
 
 ## 技术栈
 
@@ -33,6 +33,7 @@
 ├── CLOUD_SERVER_DEPLOYMENT.md # 云服务器部署执行指南
 ├── SERVER_OPERATIONS.md   # 服务器日常运维指南
 ├── RELEASE_2_0_CHECKLIST.md # v2.0.0 review 清单
+├── MENTOR_REVIEW.md       # mentor 验收说明
 ├── docs/archive/          # 已归档的阶段性文档
 ├── CHANGELOG.md           # 版本日志
 ├── CODE_ANALYSIS.md       # 代码分析文档
@@ -56,6 +57,7 @@ https://www.felixfu.xyz
 - GitHub OAuth 登录已成功
 - GitHub Actions 自动部署已成功
 - AI 写作辅助已进入后台文章工作流
+- 站点统计、账号中心、评论回复和 AI 配置测试已完成
 
 ## 本地启动
 
@@ -170,17 +172,17 @@ GITHUB_ADMIN_LOGINS=你的 GitHub 登录名
 
 ## 下一步
 
-v2.0.0 已进入发布候选阶段。请先按 [RELEASE_2_0_CHECKLIST.md](./RELEASE_2_0_CHECKLIST.md) 做整体验收；验收通过后，下一阶段建议进入 v2.1.0：AI 设置页、使用记录持久化、Prompt 模板管理和更可控的内容生成流程。
+v2.1.0 已进入 mentor 验收收尾阶段。请优先按 [MENTOR_REVIEW.md](./MENTOR_REVIEW.md) 演示；如果要做更细的回归测试，可继续参考 [RELEASE_2_0_CHECKLIST.md](./RELEASE_2_0_CHECKLIST.md)。
 
 当前云平台选择：阿里云。服务器已购买：中国香港 Ubuntu 22.04，公网 IP：`47.242.176.227`。正式域名已上线：`https://www.felixfu.xyz`。HTTPS 已配置，GitHub OAuth 登录已成功；公网 IP `http://47.242.176.227` 仍可作为服务器访问参考。
 
 后续迭代顺序建议：
 
-1. 完成 v2.0.0 review 清单中的首页、文章、评论、图片、登录、AI 和部署抽测。
-2. 配置真实 AI Provider，确认 `/api/ai/status` 显示真实模型已配置。
+1. 按 mentor 演示顺序完成首页、文章、评论、账号中心、后台统计、AI 和部署展示。
+2. 使用后台 AI 设置测试框验证真实模型连通性；长期配置仍写入服务器 `.env`。
 3. 完成 ICP 备案或根据备案进度调整国内访问说明。
-4. 进入 v2.1.0，增加 AI 设置页和使用记录持久化。
-5. 进入 v2.2.0，补 SEO、站点地图和分享卡片。
+4. 后续进入 v2.2.0，补 SEO、站点地图和分享卡片。
+5. 后续进入 v2.3.0，补更完整的监控、导出和内容运营功能。
 
 云服务器部署需要的信息：
 
@@ -199,6 +201,6 @@ v2.0.0 已进入发布候选阶段。请先按 [RELEASE_2_0_CHECKLIST.md](./RELE
 
 后续如果要继续增强线上体验，还需要：
 
-- 真实 AI Provider 的 Base URL、模型名和 API Key。
+- 真实 AI Provider 的 Base URL、模型名和 API Key。注意：API Key 只能放服务器环境变量或后台一次性测试框，不要写入仓库。
 - ICP 备案结果，用于改善国内手机和微信内置浏览器访问体验。
 - 访问统计或监控方案，用于后续内容和性能分析。

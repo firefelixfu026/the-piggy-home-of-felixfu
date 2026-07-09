@@ -3,7 +3,7 @@ import json
 import os
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -30,7 +30,7 @@ from app.auth import (
 )
 from app.database import SessionLocal, get_db, init_db
 from app.github_oauth import fetch_github_identity, get_github_authorize_url
-from app.models import Article, Comment, ReactionCounter, Tag, User, UserReaction
+from app.models import AiGeneration, Article, Comment, ReactionCounter, Tag, User, UserReaction
 from app.seed import REACTION_TYPES, seed_database
 
 
@@ -45,6 +45,7 @@ except ValueError:
     AI_REQUEST_TIMEOUT = 25.0
 ADMIN_SETUP_TOKEN = os.getenv("ADMIN_SETUP_TOKEN", "").strip()
 COMMENT_MAX_LENGTH = 300
+COMMENT_COOLDOWN_SECONDS = 20
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_IMAGE_TYPES = {
@@ -76,11 +77,11 @@ PROFILE = {
     "school": "浙江大学",
     "role": "个人博客 · 学习笔记 · AI 工作台 · 技术项目",
     "interests": ["技术写作", "AI 自动化", "长跑", "游戏"],
-    "summary": "这里沉淀学习笔记、项目复盘和个人实验。当前博客已经形成完整 2.0 闭环：文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署、自动发布和 AI 写作辅助。",
+    "summary": "这里沉淀学习笔记、项目复盘和个人实验。当前博客已经进入 mentor 验收收尾版：文章发布、分类归档、评论回复、用户中心、访问统计、GitHub 登录、云端部署和 AI 写作辅助已形成可演示闭环。",
     "metrics": [
-        {"label": "当前阶段", "value": "v2.0.0"},
-        {"label": "写作后台", "value": "已可用"},
-        {"label": "AI 模块", "value": "写作闭环"},
+        {"label": "当前阶段", "value": "mentor review"},
+        {"label": "内容系统", "value": "完整闭环"},
+        {"label": "AI 模块", "value": "可测试"},
     ],
 }
 
@@ -101,6 +102,7 @@ AI_NEWS = [
 class CommentIn(BaseModel):
     content: str
     authorName: str | None = None
+    parentId: int | None = None
 
 
 class ReactionIn(BaseModel):
@@ -117,6 +119,8 @@ class ArticleIn(BaseModel):
     date: str | None = None
     readTime: str = "3 min"
     status: Literal["published", "draft"] = "published"
+    category: str = "学习笔记"
+    pinned: bool = False
 
 
 class RegisterIn(BaseModel):
@@ -146,6 +150,13 @@ class AiEditorIn(BaseModel):
     content: str = ""
     selectedText: str = ""
     tone: str = "技术学习"
+
+
+class AiTestIn(BaseModel):
+    providerName: str = ""
+    baseUrl: str = ""
+    model: str = ""
+    apiKey: str = ""
 
 
 @app.on_event("startup")
@@ -224,10 +235,26 @@ def create_comment(
         raise HTTPException(status_code=400, detail="Comment content is required")
     if len(content) > COMMENT_MAX_LENGTH:
         raise HTTPException(status_code=400, detail=f"Comment must be {COMMENT_MAX_LENGTH} characters or fewer")
+    recent_comment = db.scalar(
+        select(Comment)
+        .where(Comment.user_id == current_user.id)
+        .order_by(Comment.created_at.desc())
+    )
+    if recent_comment and datetime.utcnow() - recent_comment.created_at < timedelta(seconds=COMMENT_COOLDOWN_SECONDS):
+        raise HTTPException(status_code=429, detail=f"评论太快了，请 {COMMENT_COOLDOWN_SECONDS} 秒后再试")
+
+    parent_id = None
+    if comment.parentId:
+        parent = db.get(Comment, comment.parentId)
+        if not parent or parent.article_id != article.id:
+            raise HTTPException(status_code=400, detail="Reply target is invalid")
+        parent_id = parent.id
 
     db.add(
         Comment(
             article_id=article.id,
+            user_id=current_user.id,
+            parent_id=parent_id,
             author_name=(current_user.display_name or current_user.email or "访客").strip() or "访客",
             content=content,
             status="pending",
@@ -321,6 +348,35 @@ def get_me(current_user: User = Depends(get_current_user)) -> dict:
     return {"user": _user_to_dict(current_user)}
 
 
+@app.get("/api/me/activity")
+def get_my_activity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    comments = db.scalars(
+        select(Comment)
+        .where(Comment.user_id == current_user.id)
+        .options(selectinload(Comment.article), selectinload(Comment.parent))
+        .order_by(Comment.created_at.desc())
+    ).all()
+    reactions = db.scalars(
+        select(UserReaction)
+        .where(UserReaction.user_id == current_user.id)
+        .options(selectinload(UserReaction.article))
+        .order_by(UserReaction.created_at.desc())
+    ).all()
+    return {
+        "user": _user_to_dict(current_user),
+        "summary": {
+            "comments": len(comments),
+            "reactions": len(reactions),
+            "favorites": len([item for item in reactions if item.reaction_type == "favorite"]),
+        },
+        "comments": [_my_comment_to_dict(comment) for comment in comments[:20]],
+        "reactions": [_my_reaction_to_dict(reaction) for reaction in reactions[:30]],
+    }
+
+
 @app.get("/api/auth/github/start")
 def start_github_login() -> RedirectResponse:
     try:
@@ -369,6 +425,8 @@ def create_admin_article(
         date=(payload.date or datetime.utcnow().date().isoformat()).strip(),
         read_time=(payload.readTime or "3 min").strip(),
         status=payload.status,
+        category=(_optional_text(payload.category) or "学习笔记")[:80],
+        pinned=payload.pinned,
     )
     article.tags = [_get_or_create_tag(db, tag_name) for tag_name in _clean_tags(payload.tags)]
     article.reactions = [
@@ -395,6 +453,8 @@ def update_admin_article(
     article.date = (payload.date or article.date).strip()
     article.read_time = (payload.readTime or article.read_time).strip()
     article.status = payload.status
+    article.category = (_optional_text(payload.category) or "学习笔记")[:80]
+    article.pinned = payload.pinned
     article.tags = [_get_or_create_tag(db, tag_name) for tag_name in _clean_tags(payload.tags)]
     db.commit()
     return _article_to_dict(_get_article_or_404(db, article.id), current_user)
@@ -477,7 +537,7 @@ def list_admin_comments(
 ) -> list[dict]:
     comments = db.scalars(
         select(Comment)
-        .options(selectinload(Comment.article))
+        .options(selectinload(Comment.article), selectinload(Comment.parent), selectinload(Comment.user))
         .order_by(Comment.created_at.desc())
     ).all()
     return [_admin_comment_to_dict(comment) for comment in comments]
@@ -514,6 +574,44 @@ def approve_admin_comment(
     return _admin_comment_to_dict(comment)
 
 
+@app.get("/api/admin/stats")
+def get_admin_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
+    articles = _load_articles(db)
+    comments = db.scalars(select(Comment).options(selectinload(Comment.article))).all()
+    users = db.scalars(select(User)).all()
+    total_views = sum(article.view_count or 0 for article in articles)
+    top_articles = sorted(articles, key=lambda item: item.view_count or 0, reverse=True)[:5]
+    categories: dict[str, int] = {}
+    tags: dict[str, int] = {}
+    for article in articles:
+        categories[article.category or "未分类"] = categories.get(article.category or "未分类", 0) + 1
+        for tag in article.tags:
+            tags[tag.name] = tags.get(tag.name, 0) + 1
+    return {
+        "summary": {
+            "articles": len(articles),
+            "published": len([article for article in articles if article.status == "published"]),
+            "drafts": len([article for article in articles if article.status == "draft"]),
+            "comments": len(comments),
+            "pendingComments": len([comment for comment in comments if comment.status == "pending"]),
+            "users": len(users),
+            "views": total_views,
+        },
+        "topArticles": [
+            {"id": article.id, "title": article.title, "views": article.view_count or 0}
+            for article in top_articles
+        ],
+        "categories": [{"name": name, "count": count} for name, count in sorted(categories.items())],
+        "tags": [
+            {"name": name, "count": count}
+            for name, count in sorted(tags.items(), key=lambda item: item[1], reverse=True)[:10]
+        ],
+    }
+
+
 @app.get("/api/ai/news")
 def get_ai_news() -> list[dict]:
     return AI_NEWS
@@ -531,6 +629,75 @@ def get_ai_status() -> dict[str, str | bool]:
         "mode": "real-model-ready" if configured else "local-placeholder",
         "message": "真实模型配置已就绪，将优先调用 OpenAI 兼容接口。" if configured else "当前使用本地占位生成；配置 AI_BASE_URL、AI_MODEL 和 AI_API_KEY 后可接入真实模型。",
     }
+
+
+@app.get("/api/admin/ai/settings")
+def get_admin_ai_settings(current_user: User = Depends(require_admin)) -> dict[str, str | bool | float]:
+    return {
+        "provider": AI_PROVIDER_NAME,
+        "model": AI_MODEL or "",
+        "baseUrlConfigured": bool(AI_BASE_URL),
+        "apiKeyConfigured": bool(AI_API_KEY),
+        "configured": _is_ai_configured(),
+        "timeout": AI_REQUEST_TIMEOUT,
+        "note": "密钥不从接口返回。后台测试框只做一次性连通性验证，不会写入仓库。",
+    }
+
+
+@app.post("/api/admin/ai/test")
+def test_admin_ai_settings(
+    payload: AiTestIn,
+    current_user: User = Depends(require_admin),
+) -> dict[str, str | bool]:
+    base_url = _optional_text(payload.baseUrl) or AI_BASE_URL
+    model = _optional_text(payload.model) or AI_MODEL
+    api_key = _optional_text(payload.apiKey) or AI_API_KEY
+    provider = _optional_text(payload.providerName) or AI_PROVIDER_NAME
+    if not base_url or not model or not api_key:
+        return {
+            "ok": False,
+            "provider": provider,
+            "model": model or "未配置",
+            "message": "缺少 Base URL、模型名或 API Key，无法测试真实模型。",
+        }
+
+    try:
+        generated = _run_ai_chat_once(
+            base_url=base_url,
+            model=model,
+            api_key=api_key,
+            messages=[
+                {"role": "system", "content": "你是一个用于连通性测试的中文助手。"},
+                {"role": "user", "content": "请只回复：AI 配置测试成功"},
+            ],
+            timeout=min(AI_REQUEST_TIMEOUT, 20),
+        )
+        return {
+            "ok": True,
+            "provider": provider,
+            "model": model,
+            "message": generated[:120] or "AI 配置测试成功",
+        }
+    except RuntimeError as exc:
+        return {
+            "ok": False,
+            "provider": provider,
+            "model": model,
+            "message": f"真实模型测试失败：{exc}",
+        }
+
+
+@app.get("/api/admin/ai/history")
+def list_admin_ai_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> list[dict]:
+    history = db.scalars(
+        select(AiGeneration)
+        .options(selectinload(AiGeneration.user))
+        .order_by(AiGeneration.created_at.desc())
+    ).all()
+    return [_ai_generation_to_dict(item) for item in history[:80]]
 
 
 @app.post("/api/ai/workbench")
@@ -568,6 +735,7 @@ def run_ai_workbench(payload: AiWorkbenchIn) -> dict:
 @app.post("/api/ai/editor")
 def run_ai_editor(
     payload: AiEditorIn,
+    db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> dict:
     title = _optional_text(payload.title) or "未命名文章"
@@ -580,7 +748,7 @@ def run_ai_editor(
     if _is_ai_configured():
         try:
             generated = _run_real_ai_editor(payload.task, title, summary, source_text, tone)
-            return {
+            result = {
                 "task": payload.task,
                 "provider": AI_PROVIDER_NAME,
                 "model": AI_MODEL,
@@ -588,9 +756,11 @@ def run_ai_editor(
                 "message": "已由真实模型生成写作辅助内容",
                 "content": generated,
             }
+            result["historyId"] = _record_ai_generation(db, current_user, payload.task, "real", title, source_text, generated)
+            return result
         except RuntimeError as exc:
             generated = _build_local_ai_editor_content(payload.task, title, summary, source_text, tone)
-            return {
+            result = {
                 "task": payload.task,
                 "provider": AI_PROVIDER_NAME,
                 "model": AI_MODEL,
@@ -598,15 +768,20 @@ def run_ai_editor(
                 "message": f"真实模型调用失败，已返回本地写作辅助：{exc}",
                 "content": generated,
             }
+            result["historyId"] = _record_ai_generation(db, current_user, payload.task, "fallback", title, source_text, generated)
+            return result
 
-    return {
+    generated = _build_local_ai_editor_content(payload.task, title, summary, source_text, tone)
+    result = {
         "task": payload.task,
         "provider": "local-placeholder",
         "model": "local-template",
         "status": "mock",
         "message": "当前使用本地占位写作辅助；配置真实模型后会优先返回 AI Provider 输出。",
-        "content": _build_local_ai_editor_content(payload.task, title, summary, source_text, tone),
+        "content": generated,
     }
+    result["historyId"] = _record_ai_generation(db, current_user, payload.task, "mock", title, source_text, generated)
+    return result
 
 
 def _build_local_ai_items(
@@ -773,6 +948,47 @@ def _ai_chat_url() -> str:
     if base_url.endswith("/chat/completions"):
         return base_url
     return f"{base_url}/chat/completions"
+
+
+def _ai_chat_url_for(base_url: str) -> str:
+    cleaned = base_url.rstrip("/")
+    if cleaned.endswith("/chat/completions"):
+        return cleaned
+    return f"{cleaned}/chat/completions"
+
+
+def _run_ai_chat_once(
+    base_url: str,
+    model: str,
+    api_key: str,
+    messages: list[dict[str, str]],
+    timeout: float,
+) -> str:
+    request = Request(
+        _ai_chat_url_for(base_url),
+        data=json.dumps({"model": model, "messages": messages, "temperature": 0.2}, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            raw_body = response.read().decode("utf-8")
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")[:180]
+        raise RuntimeError(f"HTTP {exc.code} {detail}".strip()) from exc
+    except URLError as exc:
+        raise RuntimeError(str(exc.reason)) from exc
+    except TimeoutError as exc:
+        raise RuntimeError("请求超时") from exc
+
+    try:
+        body = json.loads(raw_body)
+        return str(body["choices"][0]["message"]["content"]).strip()
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("模型响应格式无法识别") from exc
 
 
 def _parse_ai_items(content_text: str) -> list[dict]:
@@ -951,7 +1167,7 @@ def _load_articles(db: Session) -> list[Article]:
             selectinload(Article.reactions),
             selectinload(Article.user_reactions),
         )
-        .order_by(Article.created_at.desc())
+        .order_by(Article.pinned.desc(), Article.created_at.desc())
     )
     return list(db.scalars(statement).all())
 
@@ -983,6 +1199,8 @@ def _article_to_dict(article: Article, current_user: User | None = None) -> dict
         "date": article.date,
         "readTime": article.read_time,
         "status": article.status,
+        "category": article.category or "学习笔记",
+        "pinned": bool(article.pinned),
         "viewCount": article.view_count or 0,
         "comments": [_comment_to_dict(comment) for comment in _visible_comments(article, current_user)],
         "reactions": _reaction_counts(article),
@@ -1015,6 +1233,9 @@ def _comment_to_dict(comment: Comment) -> dict:
     return {
         "id": comment.id,
         "authorName": comment.author_name,
+        "userId": comment.user_id,
+        "parentId": comment.parent_id,
+        "replyToAuthor": comment.parent.author_name if comment.parent else "",
         "content": comment.content,
         "status": comment.status,
         "createdAt": comment.created_at.isoformat(),
@@ -1027,6 +1248,60 @@ def _admin_comment_to_dict(comment: Comment) -> dict:
         "articleId": comment.article_id,
         "articleTitle": comment.article.title if comment.article else "",
     }
+
+
+def _my_comment_to_dict(comment: Comment) -> dict:
+    return {
+        **_comment_to_dict(comment),
+        "articleId": comment.article_id,
+        "articleTitle": comment.article.title if comment.article else "",
+    }
+
+
+def _my_reaction_to_dict(reaction: UserReaction) -> dict:
+    return {
+        "id": reaction.id,
+        "type": reaction.reaction_type,
+        "articleId": reaction.article_id,
+        "articleTitle": reaction.article.title if reaction.article else reaction.article_id,
+        "createdAt": reaction.created_at.isoformat(),
+    }
+
+
+def _ai_generation_to_dict(item: AiGeneration) -> dict:
+    return {
+        "id": item.id,
+        "task": item.task,
+        "source": item.source,
+        "title": item.title,
+        "prompt": item.prompt,
+        "result": item.result,
+        "authorName": item.user.display_name if item.user else "",
+        "createdAt": item.created_at.isoformat(),
+    }
+
+
+def _record_ai_generation(
+    db: Session,
+    user: User,
+    task: str,
+    source: str,
+    title: str,
+    prompt: str,
+    result: str,
+) -> int:
+    item = AiGeneration(
+        user_id=user.id,
+        task=task,
+        source=source,
+        title=title[:255],
+        prompt=(prompt or "")[:3000],
+        result=(result or "")[:5000],
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item.id
 
 
 def _reaction_counts(article: Article) -> dict[str, int]:
