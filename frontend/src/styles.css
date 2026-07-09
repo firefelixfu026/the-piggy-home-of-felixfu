@@ -1174,6 +1174,12 @@ h3 {
   font-size: 13px;
 }
 
+.ai-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .game-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

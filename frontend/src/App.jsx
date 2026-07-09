@@ -577,6 +577,52 @@ function App() {
     clearArticleDraft('');
   }
 
+  function useAiResultAsArticleDraft(item) {
+    if (currentUser?.role !== 'admin') {
+      setAuthMode('login');
+      setAuthMessage('请先登录管理员账号，再把 AI 候选填入文章表单');
+      setActiveView('login');
+      return;
+    }
+
+    const aiTags = (item.tags || []).map((tag) => String(tag).trim()).filter(Boolean);
+    const aiContentBlock = [
+      `## AI 候选：${item.title}`,
+      '',
+      item.summary,
+      '',
+      item.action ? `> ${item.action}` : '',
+      '',
+      '## 正文',
+      ''
+    ].filter((line, index, lines) => line || lines[index - 1]).join('\n');
+
+    setEditingArticleId(null);
+    setArticleForm((current) => {
+      const currentTags = current.tags
+        .split(/[,，]/)
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      const mergedTags = Array.from(new Set([...currentTags, ...aiTags]));
+      const hasContent = current.content.trim();
+
+      return {
+        ...current,
+        title: current.title.trim() ? current.title : item.title,
+        summary: current.summary.trim() ? current.summary : item.summary,
+        content: hasContent
+          ? `${current.content.trimEnd()}\n\n---\n\n${aiContentBlock}`
+          : `# ${item.title}\n\n${item.summary}\n\n${item.action ? `## 写作提示\n\n- ${item.action}\n\n` : ''}## 正文\n\n`,
+        tags: mergedTags.join(', '),
+        date: current.date || new Date().toISOString().slice(0, 10),
+        readTime: current.readTime || '3 min',
+        status: 'draft'
+      };
+    });
+    setAdminMessage('AI 候选已填入文章表单，状态已设为草稿');
+    setActiveView('admin');
+  }
+
   async function uploadAdminImage(file) {
     if (!file) return;
     if (!authToken) {
@@ -987,7 +1033,13 @@ function App() {
           />
         )}
 
-        {activeView === 'ai' && <AiWorkspace news={aiNews} articles={articles} />}
+        {activeView === 'ai' && (
+          <AiWorkspace
+            news={aiNews}
+            articles={articles}
+            useAiResultAsArticleDraft={useAiResultAsArticleDraft}
+          />
+        )}
 
         {activeView === 'game' && <GameWorkspace />}
 
@@ -1063,7 +1115,7 @@ function Overview({ profile, articles, setActiveView }) {
     },
     {
       title: 'AI 工作台',
-      summary: '已支持文章灵感、摘要生成和标题优化，并可通过环境变量接入真实模型。',
+      summary: '已支持文章灵感、摘要生成、标题优化，并能把候选内容填入写作后台草稿。',
       action: '打开 AI',
       view: 'ai',
       icon: Bot
@@ -1946,7 +1998,7 @@ function uniqueCommentOptions(comments, primaryKey, fallbackKey) {
   return Array.from(options).sort((first, second) => first.localeCompare(second, 'zh-CN'));
 }
 
-function AiWorkspace({ news, articles }) {
+function AiWorkspace({ news, articles, useAiResultAsArticleDraft }) {
   const aiModes = [
     { id: 'ideas', label: '文章灵感', description: '从主题生成选题、角度和标签建议。' },
     { id: 'summary', label: '摘要生成', description: '根据正文或主题生成短摘要和结构化摘要。' },
@@ -2143,10 +2195,16 @@ function AiWorkspace({ news, articles }) {
                   </div>
                   <div className="manager-actions">
                     <span>{item.action}</span>
-                    <button type="button" onClick={() => copyAiText(item)}>
-                      <Copy size={16} />
-                      <span>复制</span>
-                    </button>
+                    <div className="ai-result-actions">
+                      <button type="button" onClick={() => useAiResultAsArticleDraft(item)}>
+                        <FilePenLine size={16} />
+                        <span>填入表单</span>
+                      </button>
+                      <button type="button" onClick={() => copyAiText(item)}>
+                        <Copy size={16} />
+                        <span>复制</span>
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
