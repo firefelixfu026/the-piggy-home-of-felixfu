@@ -1023,6 +1023,9 @@ def _extract_ai_text(raw_body: str) -> str:
     stripped = raw_body.strip()
     if not stripped:
         raise RuntimeError("模型返回内容为空")
+    lower = stripped[:120].lower()
+    if lower.startswith("<!doctype") or lower.startswith("<html"):
+        raise RuntimeError("接口返回了网页 HTML，请检查 Base URL 是否为中转站提供的完整 API 地址")
 
     if stripped.startswith("data:"):
         text = _extract_sse_text(stripped)
