@@ -146,6 +146,7 @@ function App() {
   const [aiSettings, setAiSettings] = useState(null);
   const [aiTestForm, setAiTestForm] = useState({
     providerName: '',
+    apiStyle: 'openai',
     baseUrl: '',
     model: '',
     apiKey: ''
@@ -382,6 +383,7 @@ function App() {
         setAiTestForm((current) => ({
           ...current,
           providerName: current.providerName || payload.provider || '',
+          apiStyle: current.apiStyle || payload.apiStyle || 'openai',
           model: current.model || payload.model || ''
         }));
       }
@@ -3094,10 +3096,18 @@ function AdminWorkspace({
             onChange={(event) => setAiTestForm((current) => ({ ...current, providerName: event.target.value }))}
             placeholder="Provider 名称"
           />
+          <select
+            value={aiTestForm.apiStyle}
+            onChange={(event) => setAiTestForm((current) => ({ ...current, apiStyle: event.target.value }))}
+            aria-label="AI 接口类型"
+          >
+            <option value="openai">OpenAI 兼容</option>
+            <option value="codex">Codex 中转</option>
+          </select>
           <input
             value={aiTestForm.baseUrl}
             onChange={(event) => setAiTestForm((current) => ({ ...current, baseUrl: event.target.value }))}
-            placeholder="Base URL，例如 https://api.openai.com/v1"
+            placeholder="Base URL，例如 https://api.openai.com/v1 或 Codex 中转地址"
           />
           <input
             value={aiTestForm.model}

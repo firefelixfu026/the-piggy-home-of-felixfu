@@ -36,6 +36,7 @@ from app.seed import REACTION_TYPES, seed_database
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173").rstrip("/")
 AI_PROVIDER_NAME = os.getenv("AI_PROVIDER_NAME", "local-placeholder").strip() or "local-placeholder"
+AI_API_STYLE = os.getenv("AI_API_STYLE", "openai").strip().lower() or "openai"
 AI_BASE_URL = os.getenv("AI_BASE_URL", "").strip()
 AI_MODEL = os.getenv("AI_MODEL", "").strip()
 AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
@@ -154,6 +155,7 @@ class AiEditorIn(BaseModel):
 
 class AiTestIn(BaseModel):
     providerName: str = ""
+    apiStyle: str = ""
     baseUrl: str = ""
     model: str = ""
     apiKey: str = ""
@@ -622,6 +624,7 @@ def get_ai_status() -> dict[str, str | bool]:
     configured = _is_ai_configured()
     return {
         "provider": AI_PROVIDER_NAME,
+        "apiStyle": _normalize_ai_style(AI_API_STYLE),
         "model": AI_MODEL or "未配置",
         "baseUrlConfigured": bool(AI_BASE_URL),
         "apiKeyConfigured": bool(AI_API_KEY),
@@ -635,6 +638,7 @@ def get_ai_status() -> dict[str, str | bool]:
 def get_admin_ai_settings(current_user: User = Depends(require_admin)) -> dict[str, str | bool | float]:
     return {
         "provider": AI_PROVIDER_NAME,
+        "apiStyle": _normalize_ai_style(AI_API_STYLE),
         "model": AI_MODEL or "",
         "baseUrlConfigured": bool(AI_BASE_URL),
         "apiKeyConfigured": bool(AI_API_KEY),
@@ -653,10 +657,12 @@ def test_admin_ai_settings(
     model = _optional_text(payload.model) or AI_MODEL
     api_key = _optional_text(payload.apiKey) or AI_API_KEY
     provider = _optional_text(payload.providerName) or AI_PROVIDER_NAME
+    api_style = _normalize_ai_style(_optional_text(payload.apiStyle) or AI_API_STYLE)
     if not base_url or not model or not api_key:
         return {
             "ok": False,
             "provider": provider,
+            "apiStyle": api_style,
             "model": model or "未配置",
             "message": "缺少 Base URL、模型名或 API Key，无法测试真实模型。",
         }
@@ -664,6 +670,7 @@ def test_admin_ai_settings(
     try:
         generated = _run_ai_chat_once(
             base_url=base_url,
+            api_style=api_style,
             model=model,
             api_key=api_key,
             messages=[
@@ -675,6 +682,7 @@ def test_admin_ai_settings(
         return {
             "ok": True,
             "provider": provider,
+            "apiStyle": api_style,
             "model": model,
             "message": generated[:120] or "AI 配置测试成功",
         }
@@ -682,6 +690,7 @@ def test_admin_ai_settings(
         return {
             "ok": False,
             "provider": provider,
+            "apiStyle": api_style,
             "model": model,
             "message": f"真实模型测试失败：{exc}",
         }
@@ -861,6 +870,13 @@ def _is_ai_configured() -> bool:
     return bool(AI_API_KEY and AI_MODEL and AI_BASE_URL)
 
 
+def _normalize_ai_style(value: str | None) -> str:
+    style = (value or "openai").strip().lower()
+    if style in {"codex", "codex-relay", "aicodemirror", "aicode-mirror"}:
+        return "codex"
+    return "openai"
+
+
 def _run_real_ai_workbench(
     payload: AiWorkbenchIn,
     topic: str,
@@ -869,43 +885,16 @@ def _run_real_ai_workbench(
     tone: str,
 ) -> dict:
     prompt = _build_ai_prompt(payload.mode, topic, content, tags, tone)
-    response_payload = {
-        "model": AI_MODEL,
-        "messages": [
+    content_text = _run_configured_ai_chat(
+        messages=[
             {
                 "role": "system",
                 "content": "你是一个帮助个人博客作者整理学习笔记、项目复盘和文章选题的中文写作助手。请严格输出 JSON。",
             },
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.7,
-    }
-    request = Request(
-        _ai_chat_url(),
-        data=json.dumps(response_payload, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {AI_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+        temperature=0.7,
     )
-
-    try:
-        with urlopen(request, timeout=AI_REQUEST_TIMEOUT) as response:
-            raw_body = response.read().decode("utf-8")
-    except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")[:180]
-        raise RuntimeError(f"HTTP {exc.code} {detail}".strip()) from exc
-    except URLError as exc:
-        raise RuntimeError(str(exc.reason)) from exc
-    except TimeoutError as exc:
-        raise RuntimeError("请求超时") from exc
-
-    try:
-        body = json.loads(raw_body)
-        content_text = body["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-        raise RuntimeError("模型响应格式无法识别") from exc
 
     items = _parse_ai_items(content_text)
     return {
@@ -943,30 +932,65 @@ def _build_ai_prompt(
     )
 
 
-def _ai_chat_url() -> str:
-    base_url = AI_BASE_URL.rstrip("/")
-    if base_url.endswith("/chat/completions"):
-        return base_url
-    return f"{base_url}/chat/completions"
-
-
-def _ai_chat_url_for(base_url: str) -> str:
+def _ai_chat_url_for(base_url: str, api_style: str = "openai") -> str:
     cleaned = base_url.rstrip("/")
+    if _normalize_ai_style(api_style) == "codex":
+        return cleaned
     if cleaned.endswith("/chat/completions"):
         return cleaned
     return f"{cleaned}/chat/completions"
 
 
+def _run_configured_ai_chat(messages: list[dict[str, str]], temperature: float) -> str:
+    return _run_ai_chat_once(
+        base_url=AI_BASE_URL,
+        api_style=AI_API_STYLE,
+        model=AI_MODEL,
+        api_key=AI_API_KEY,
+        messages=messages,
+        timeout=AI_REQUEST_TIMEOUT,
+        temperature=temperature,
+    )
+
+
 def _run_ai_chat_once(
     base_url: str,
+    api_style: str,
     model: str,
     api_key: str,
     messages: list[dict[str, str]],
     timeout: float,
+    temperature: float = 0.2,
 ) -> str:
+    style = _normalize_ai_style(api_style)
+    endpoint = _ai_chat_url_for(base_url, style)
+    prompt = _messages_to_prompt(messages)
+    candidate_payloads = [
+        {"model": model, "messages": messages, "temperature": temperature, "stream": False},
+    ]
+    if style == "codex":
+        candidate_payloads.extend([
+            {"model": model, "input": prompt, "temperature": temperature, "stream": False},
+            {"model": model, "prompt": prompt, "temperature": temperature, "stream": False},
+        ])
+
+    last_error: RuntimeError | None = None
+    for payload in candidate_payloads:
+        try:
+            raw_body = _post_ai_json(endpoint, api_key, payload, timeout)
+            return _extract_ai_text(raw_body)
+        except RuntimeError as exc:
+            last_error = exc
+            if "HTTP 401" in str(exc) or "HTTP 403" in str(exc):
+                break
+
+    raise last_error or RuntimeError("模型响应格式无法识别")
+
+
+def _post_ai_json(endpoint: str, api_key: str, payload: dict, timeout: float) -> str:
     request = Request(
-        _ai_chat_url_for(base_url),
-        data=json.dumps({"model": model, "messages": messages, "temperature": 0.2}, ensure_ascii=False).encode("utf-8"),
+        endpoint,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -975,7 +999,7 @@ def _run_ai_chat_once(
     )
     try:
         with urlopen(request, timeout=timeout) as response:
-            raw_body = response.read().decode("utf-8")
+            return response.read().decode("utf-8")
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore")[:180]
         raise RuntimeError(f"HTTP {exc.code} {detail}".strip()) from exc
@@ -984,11 +1008,118 @@ def _run_ai_chat_once(
     except TimeoutError as exc:
         raise RuntimeError("请求超时") from exc
 
+
+def _messages_to_prompt(messages: list[dict[str, str]]) -> str:
+    parts = []
+    for message in messages:
+        role = str(message.get("role") or "user").strip()
+        content = str(message.get("content") or "").strip()
+        if content:
+            parts.append(f"{role}: {content}")
+    return "\n\n".join(parts)
+
+
+def _extract_ai_text(raw_body: str) -> str:
+    stripped = raw_body.strip()
+    if not stripped:
+        raise RuntimeError("模型返回内容为空")
+
+    if stripped.startswith("data:"):
+        text = _extract_sse_text(stripped)
+        if text:
+            return text
+
     try:
-        body = json.loads(raw_body)
-        return str(body["choices"][0]["message"]["content"]).strip()
-    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        body = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        if stripped and not stripped.startswith("{") and not stripped.startswith("["):
+            return stripped[:5000].strip()
         raise RuntimeError("模型响应格式无法识别") from exc
+
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict):
+            message = str(error.get("message") or error.get("code") or "").strip()
+            if message:
+                raise RuntimeError(message[:180])
+        elif isinstance(error, str) and error.strip():
+            raise RuntimeError(error.strip()[:180])
+
+    text = _find_ai_text(body)
+    if not text:
+        raise RuntimeError("模型响应格式无法识别")
+    return text.strip()
+
+
+def _extract_sse_text(raw_body: str) -> str:
+    parts = []
+    for line in raw_body.splitlines():
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[5:].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            body = json.loads(data)
+        except json.JSONDecodeError:
+            parts.append(data)
+            continue
+        text = _find_ai_text(body)
+        if text:
+            parts.append(text)
+    return "".join(parts).strip()
+
+
+def _find_ai_text(value) -> str:
+    if isinstance(value, str):
+        return value.strip()
+
+    if isinstance(value, list):
+        parts = [_find_ai_text(item) for item in value]
+        return "".join(part for part in parts if part).strip()
+
+    if not isinstance(value, dict):
+        return ""
+
+    choices = value.get("choices")
+    if isinstance(choices, list) and choices:
+        choice = choices[0]
+        if isinstance(choice, dict):
+            message = choice.get("message")
+            if isinstance(message, dict):
+                content = _find_ai_text(message.get("content"))
+                if content:
+                    return content
+            delta = choice.get("delta")
+            if isinstance(delta, dict):
+                content = _find_ai_text(delta.get("content"))
+                if content:
+                    return content
+            text = _find_ai_text(choice.get("text"))
+            if text:
+                return text
+
+    output_text = _find_ai_text(value.get("output_text"))
+    if output_text:
+        return output_text
+
+    output = value.get("output")
+    if isinstance(output, list):
+        parts = []
+        for item in output:
+            if isinstance(item, dict):
+                parts.append(_find_ai_text(item.get("content")))
+        text = "".join(part for part in parts if part).strip()
+        if text:
+            return text
+
+    for key in ("content", "text", "result", "response", "message", "answer"):
+        text = _find_ai_text(value.get(key))
+        if text:
+            return text
+
+    return ""
 
 
 def _parse_ai_items(content_text: str) -> list[dict]:
@@ -1046,43 +1177,16 @@ def _run_real_ai_editor(
     tone: str,
 ) -> str:
     prompt = _build_ai_editor_prompt(task, title, summary, source_text, tone)
-    response_payload = {
-        "model": AI_MODEL,
-        "messages": [
+    generated = _run_configured_ai_chat(
+        messages=[
             {
                 "role": "system",
                 "content": "你是个人博客写作助手。请输出可直接粘贴到 Markdown 文章正文中的中文内容，不要解释你的工作过程。",
             },
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.65,
-    }
-    request = Request(
-        _ai_chat_url(),
-        data=json.dumps(response_payload, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {AI_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+        temperature=0.65,
     )
-
-    try:
-        with urlopen(request, timeout=AI_REQUEST_TIMEOUT) as response:
-            raw_body = response.read().decode("utf-8")
-    except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")[:180]
-        raise RuntimeError(f"HTTP {exc.code} {detail}".strip()) from exc
-    except URLError as exc:
-        raise RuntimeError(str(exc.reason)) from exc
-    except TimeoutError as exc:
-        raise RuntimeError("请求超时") from exc
-
-    try:
-        body = json.loads(raw_body)
-        generated = str(body["choices"][0]["message"]["content"]).strip()
-    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-        raise RuntimeError("模型响应格式无法识别") from exc
 
     generated = re.sub(r"^```(?:markdown|md)?", "", generated, flags=re.IGNORECASE).strip()
     generated = re.sub(r"```$", "", generated).strip()

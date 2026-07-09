@@ -2,9 +2,25 @@
 
 当前项目状态：已经完成本地 MVP、FastAPI 接口骨架、小游戏嵌入、PostgreSQL 数据持久化、文章管理后台、邮箱登录鉴权、GitHub OAuth 登录、Docker Compose 一键启动、GitHub Actions 自动测试和阶段性文档整理；本地 Git 仓库已绑定 GitHub 远程仓库 `https://github.com/firefelixfu026/the-piggy-home-of-felixfu.git`。
 
-当前最新阶段：v2.1.0 mentor 验收收尾版。博客已经完成文章发布、分类归档、Markdown/LaTeX、图片上传、评论回复和审核、账号中心、管理员后台、站点统计、GitHub OAuth、云端部署、自动发布和 AI 写作辅助的演示闭环。
+当前最新阶段：v2.1.1 AI Codex 中转接口适配版。博客已经完成文章发布、分类归档、Markdown/LaTeX、图片上传、评论回复和审核、账号中心、管理员后台、站点统计、GitHub OAuth、云端部署、自动发布和 AI 写作辅助的演示闭环，并新增 Codex 中转接口接入能力。
 
 GitHub 推送问题已通过 Clash `127.0.0.1:7897` 代理解决，排查细节已归档到 `docs/archive/GITHUB_PUSH_TROUBLESHOOTING.md`。
+
+## 40. v2.1.1 已完成：AI Codex 中转接口适配
+
+本阶段已完成：
+
+- 新增 `AI_API_STYLE`，支持 `openai` 和 `codex` 两种接口模式。
+- 后台 AI 设置和测试面板新增“接口类型”选择。
+- Codex 模式直接请求中转站给出的完整地址，不再强行追加 `/chat/completions`。
+- AI 返回解析器兼容 OpenAI Chat Completions、Responses 风格和常见中转站字段。
+- `.env.example`、`docker-compose.yml`、`DOCKER_COMPOSE.md` 已补充 Codex 中转配置说明。
+
+部署后请重点测试：
+
+1. 后台管理页的 AI 设置和测试面板是否能选择 “Codex 中转”。
+2. Base URL 填写中转站提供的 Codex 完整地址后，测试按钮是否能返回成功或清晰错误。
+3. AI 工作台生成候选、后台润色/续写/大纲是否仍可在失败时回退到本地内容。
 
 ## 39. v2.1.0 已完成：Mentor 验收收尾版
 

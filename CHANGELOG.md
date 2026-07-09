@@ -1,5 +1,13 @@
 ﻿# 版本日志
 
+## v2.1.1 - AI Codex 中转接口适配
+
+- 后端新增 `AI_API_STYLE` 配置，支持 `openai` 和 `codex` 两种真实模型接口类型。
+- Codex 模式会直接请求中转站提供的完整地址，不再自动拼接 `/chat/completions`。
+- AI 返回内容解析器兼容 `choices`、`output_text`、`content`、`result`、`output[].content[].text` 和 SSE `data:` 等常见形态。
+- 后台 AI 设置和测试面板新增“接口类型”选择，可直接测试 AICodeMirror 等 Codex 中转接口。
+- `.env.example`、`docker-compose.yml` 和部署文档补充 Codex 中转配置说明。
+
 ## v2.1.0 - Mentor 验收收尾版
 
 - 后台新增站点统计面板，展示总阅读、用户、评论、待审评论、草稿、热门文章和分类分布。
