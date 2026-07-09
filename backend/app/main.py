@@ -76,11 +76,11 @@ PROFILE = {
     "school": "浙江大学",
     "role": "个人博客 · 学习笔记 · AI 工作台 · 技术项目",
     "interests": ["技术写作", "AI 自动化", "长跑", "游戏"],
-    "summary": "这里沉淀学习笔记、项目复盘和个人实验。当前博客已经具备文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署和可接入写作流程的 AI 工作台。",
+    "summary": "这里沉淀学习笔记、项目复盘和个人实验。当前博客已经具备文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署和可辅助写作流程的 AI 工作台。",
     "metrics": [
-        {"label": "当前阶段", "value": "v1.7.3"},
+        {"label": "当前阶段", "value": "v1.7.4"},
         {"label": "写作后台", "value": "已可用"},
-        {"label": "AI 模块", "value": "AI 到草稿"},
+        {"label": "AI 模块", "value": "辅助写作"},
     ],
 }
 
@@ -137,6 +137,15 @@ class AiWorkbenchIn(BaseModel):
     content: str = ""
     tone: str = "技术学习"
     tags: list[str] = []
+
+
+class AiEditorIn(BaseModel):
+    task: Literal["polish", "continue", "outline"]
+    title: str = ""
+    summary: str = ""
+    content: str = ""
+    selectedText: str = ""
+    tone: str = "技术学习"
 
 
 @app.on_event("startup")
@@ -556,6 +565,50 @@ def run_ai_workbench(payload: AiWorkbenchIn) -> dict:
     }
 
 
+@app.post("/api/ai/editor")
+def run_ai_editor(
+    payload: AiEditorIn,
+    current_user: User = Depends(require_admin),
+) -> dict:
+    title = _optional_text(payload.title) or "未命名文章"
+    summary = _optional_text(payload.summary) or ""
+    content = _optional_text(payload.content) or ""
+    selected_text = _optional_text(payload.selectedText) or ""
+    tone = _optional_text(payload.tone) or "技术学习"
+    source_text = selected_text or content
+
+    if _is_ai_configured():
+        try:
+            generated = _run_real_ai_editor(payload.task, title, summary, source_text, tone)
+            return {
+                "task": payload.task,
+                "provider": AI_PROVIDER_NAME,
+                "model": AI_MODEL,
+                "status": "real",
+                "message": "已由真实模型生成写作辅助内容",
+                "content": generated,
+            }
+        except RuntimeError as exc:
+            generated = _build_local_ai_editor_content(payload.task, title, summary, source_text, tone)
+            return {
+                "task": payload.task,
+                "provider": AI_PROVIDER_NAME,
+                "model": AI_MODEL,
+                "status": "fallback",
+                "message": f"真实模型调用失败，已返回本地写作辅助：{exc}",
+                "content": generated,
+            }
+
+    return {
+        "task": payload.task,
+        "provider": "local-placeholder",
+        "model": "local-template",
+        "status": "mock",
+        "message": "当前使用本地占位写作辅助；配置真实模型后会优先返回 AI Provider 输出。",
+        "content": _build_local_ai_editor_content(payload.task, title, summary, source_text, tone),
+    }
+
+
 def _build_local_ai_items(
     mode: Literal["ideas", "summary", "titles"],
     topic: str,
@@ -767,6 +820,116 @@ def _parse_ai_items(content_text: str) -> list[dict]:
     if not items:
         raise RuntimeError("模型返回内容为空")
     return items
+
+
+def _run_real_ai_editor(
+    task: Literal["polish", "continue", "outline"],
+    title: str,
+    summary: str,
+    source_text: str,
+    tone: str,
+) -> str:
+    prompt = _build_ai_editor_prompt(task, title, summary, source_text, tone)
+    response_payload = {
+        "model": AI_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": "你是个人博客写作助手。请输出可直接粘贴到 Markdown 文章正文中的中文内容，不要解释你的工作过程。",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.65,
+    }
+    request = Request(
+        _ai_chat_url(),
+        data=json.dumps(response_payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {AI_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=AI_REQUEST_TIMEOUT) as response:
+            raw_body = response.read().decode("utf-8")
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")[:180]
+        raise RuntimeError(f"HTTP {exc.code} {detail}".strip()) from exc
+    except URLError as exc:
+        raise RuntimeError(str(exc.reason)) from exc
+    except TimeoutError as exc:
+        raise RuntimeError("请求超时") from exc
+
+    try:
+        body = json.loads(raw_body)
+        generated = str(body["choices"][0]["message"]["content"]).strip()
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("模型响应格式无法识别") from exc
+
+    generated = re.sub(r"^```(?:markdown|md)?", "", generated, flags=re.IGNORECASE).strip()
+    generated = re.sub(r"```$", "", generated).strip()
+    if not generated:
+        raise RuntimeError("模型返回内容为空")
+    return generated[:5000]
+
+
+def _build_ai_editor_prompt(
+    task: Literal["polish", "continue", "outline"],
+    title: str,
+    summary: str,
+    source_text: str,
+    tone: str,
+) -> str:
+    task_guides = {
+        "polish": "请润色给定内容，保留原意，改善表达、结构和衔接。输出润色后的正文片段。",
+        "continue": "请基于已有内容续写 2 到 4 个自然段，延续原文语气，并给出可继续展开的方向。",
+        "outline": "请为这篇文章生成清晰 Markdown 大纲，包含二级标题和每节要点。",
+    }
+    return (
+        f"任务：{task_guides[task]}\n"
+        f"文章标题：{title}\n"
+        f"文章摘要：{summary or '暂无'}\n"
+        f"语气：{tone}\n"
+        f"参考内容：{(source_text or '暂无正文，请根据标题和摘要生成。')[:4000]}\n\n"
+        "要求：输出 Markdown；不要用代码块包裹；不要写“以下是”。"
+    )
+
+
+def _build_local_ai_editor_content(
+    task: Literal["polish", "continue", "outline"],
+    title: str,
+    summary: str,
+    source_text: str,
+    tone: str,
+) -> str:
+    compact = re.sub(r"\s+", " ", source_text).strip()
+    if len(compact) > 220:
+        compact = compact[:220].rstrip() + "..."
+
+    if task == "polish":
+        return (
+            "## AI 润色建议\n\n"
+            f"- 主题聚焦：围绕“{title}”保持一条清晰主线。\n"
+            f"- 表达风格：建议采用偏{tone}的语气，减少跳跃，补足因果关系。\n"
+            f"- 可替换段落：{compact or summary or '请先补充一段正文，再使用真实模型生成完整润色结果。'}\n"
+        )
+    if task == "continue":
+        return (
+            "## AI 续写草稿\n\n"
+            f"沿着“{title}”继续写，可以先补充当前问题的背景，再记录你实际尝试过的方案。\n\n"
+            "接下来可以写三个部分：第一，为什么这个问题值得记录；第二，实践中遇到的阻碍；第三，最终沉淀的方法或清单。\n"
+        )
+    return (
+        "## AI 文章大纲\n\n"
+        f"### 1. 背景：为什么写《{title}》\n\n"
+        "- 记录问题来源\n- 说明读者能获得什么\n\n"
+        "### 2. 实践过程\n\n"
+        "- 关键步骤\n- 遇到的问题\n- 解决办法\n\n"
+        "### 3. 总结和下一步\n\n"
+        "- 当前结论\n- 后续计划\n"
+    )
 
 
 @app.get("/api/game/card-war")

@@ -122,6 +122,7 @@ function App() {
   const [adminCommentStatusFilter, setAdminCommentStatusFilter] = useState('all');
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [isSavingArticle, setIsSavingArticle] = useState(false);
+  const [isRunningArticleAi, setIsRunningArticleAi] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadedImages, setUploadedImages] = useState([]);
   const [isLoadingUploadedImages, setIsLoadingUploadedImages] = useState(false);
@@ -575,6 +576,60 @@ function App() {
     setEditingArticleId(null);
     setAdminMessage('');
     clearArticleDraft('');
+  }
+
+  async function runArticleAiTask(task, selectedText = '') {
+    if (currentUser?.role !== 'admin') {
+      setAdminMessage('请先登录管理员账号');
+      setActiveView('login');
+      return;
+    }
+
+    setIsRunningArticleAi(true);
+    setAdminMessage('AI 正在生成写作辅助内容...');
+    try {
+      const response = await fetch('/api/ai/editor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          task,
+          title: articleForm.title,
+          summary: articleForm.summary,
+          content: articleForm.content,
+          selectedText,
+          tone: '个人博客'
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAdminMessage(payload.detail || 'AI 写作辅助失败');
+        if (response.status === 401 || response.status === 403) {
+          setActiveView('login');
+        }
+        return;
+      }
+
+      const taskLabel = {
+        polish: '润色',
+        continue: '续写',
+        outline: '大纲'
+      }[task] || '写作辅助';
+      const sourceLabel = payload.status === 'real' ? '真实模型' : payload.status === 'fallback' ? '回退结果' : '本地占位';
+      setArticleForm((current) => {
+        const currentContent = (current.content || '').trimEnd();
+        const separator = currentContent ? '\n\n---\n\n' : '';
+        const nextBlock = `## AI ${taskLabel}结果（${sourceLabel}）\n\n${payload.content || ''}`;
+        return {
+          ...current,
+          content: `${currentContent}${separator}${nextBlock}`
+        };
+      });
+      setAdminMessage(payload.message || `AI ${taskLabel}结果已追加到正文`);
+    } catch {
+      setAdminMessage('后端服务不可用，AI 写作辅助失败');
+    } finally {
+      setIsRunningArticleAi(false);
+    }
   }
 
   function useAiResultAsArticleDraft(item) {
@@ -1066,6 +1121,7 @@ function App() {
             updateArticleForm={updateArticleForm}
             editingArticleId={editingArticleId}
             isSavingArticle={isSavingArticle}
+            isRunningArticleAi={isRunningArticleAi}
             isUploadingImage={isUploadingImage}
             uploadedImages={uploadedImages}
             isLoadingUploadedImages={isLoadingUploadedImages}
@@ -1077,6 +1133,7 @@ function App() {
             refreshUploadedImages={refreshUploadedImages}
             copyUploadedImageUrl={copyUploadedImageUrl}
             deleteUploadedImage={deleteUploadedImage}
+            runArticleAiTask={runArticleAiTask}
             restoreArticleDraft={restoreArticleDraft}
             clearArticleDraft={clearArticleDraft}
             resetArticleForm={resetArticleForm}
@@ -1115,7 +1172,7 @@ function Overview({ profile, articles, setActiveView }) {
     },
     {
       title: 'AI 工作台',
-      summary: '已支持文章灵感、摘要生成、标题优化，并能把候选内容填入写作后台草稿。',
+      summary: '已支持文章灵感、摘要生成、标题优化，并能在后台润色、续写和生成大纲。',
       action: '打开 AI',
       view: 'ai',
       icon: Bot
@@ -2423,6 +2480,7 @@ function AdminWorkspace({
   updateArticleForm,
   editingArticleId,
   isSavingArticle,
+  isRunningArticleAi,
   isUploadingImage,
   uploadedImages,
   isLoadingUploadedImages,
@@ -2434,6 +2492,7 @@ function AdminWorkspace({
   refreshUploadedImages,
   copyUploadedImageUrl,
   deleteUploadedImage,
+  runArticleAiTask,
   restoreArticleDraft,
   clearArticleDraft,
   resetArticleForm,
@@ -2508,6 +2567,15 @@ function AdminWorkspace({
   function insertImageMarkdown(url, filename = '文章图片') {
     const altText = filename.replace(/\.[^.]+$/, '') || '文章图片';
     insertContentSnippet(`![${altText}](${url})`);
+  }
+
+  function handleRunArticleAiTask(task) {
+    const textarea = contentTextareaRef.current;
+    const content = articleForm.content || '';
+    const start = textarea?.selectionStart ?? 0;
+    const end = textarea?.selectionEnd ?? 0;
+    const selectedText = start !== end ? content.slice(start, end) : '';
+    runArticleAiTask(task, selectedText);
   }
 
   return (
@@ -2607,6 +2675,20 @@ function AdminWorkspace({
 
           <label>
             <span>正文</span>
+            <div className="ai-editor-tools" aria-label="AI 写作辅助">
+              <button type="button" disabled={isRunningArticleAi} onClick={() => handleRunArticleAiTask('polish')}>
+                <Bot size={16} />
+                <span>AI 润色</span>
+              </button>
+              <button type="button" disabled={isRunningArticleAi} onClick={() => handleRunArticleAiTask('continue')}>
+                <PlusCircle size={16} />
+                <span>AI 续写</span>
+              </button>
+              <button type="button" disabled={isRunningArticleAi} onClick={() => handleRunArticleAiTask('outline')}>
+                <List size={16} />
+                <span>AI 大纲</span>
+              </button>
+            </div>
             <div className="markdown-toolbar" aria-label="Markdown 工具栏">
               <button type="button" title="二级标题" onClick={() => insertIntoContent('## ', '', '小标题')}>
                 <Heading2 size={16} />
