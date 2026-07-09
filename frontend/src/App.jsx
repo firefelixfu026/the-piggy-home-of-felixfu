@@ -127,6 +127,7 @@ function App() {
   const [uploadedImages, setUploadedImages] = useState([]);
   const [isLoadingUploadedImages, setIsLoadingUploadedImages] = useState(false);
   const [articleDraftNotice, setArticleDraftNotice] = useState('');
+  const [aiGenerationHistory, setAiGenerationHistory] = useState([]);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('felix_blog_token') || '');
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -620,41 +621,64 @@ function App() {
         insert: '插入',
         replace: selectedText ? '替换' : '插入'
       }[insertMode] || '追加';
-      setArticleForm((current) => {
-        const nextBlock = `## AI ${taskLabel}结果（${sourceLabel}）\n\n${payload.content || ''}`;
-        const content = current.content || '';
-        const rangeStart = Number.isFinite(selectionRange?.start)
-          ? Math.max(0, Math.min(selectionRange.start, content.length))
-          : content.length;
-        const rangeEnd = Number.isFinite(selectionRange?.end)
-          ? Math.max(rangeStart, Math.min(selectionRange.end, content.length))
-          : rangeStart;
+      const nextBlock = `## AI ${taskLabel}结果（${sourceLabel}）\n\n${payload.content || ''}`;
+      const beforeContent = articleForm.content || '';
+      const rangeStart = Number.isFinite(selectionRange?.start)
+        ? Math.max(0, Math.min(selectionRange.start, beforeContent.length))
+        : beforeContent.length;
+      const rangeEnd = Number.isFinite(selectionRange?.end)
+        ? Math.max(rangeStart, Math.min(selectionRange.end, beforeContent.length))
+        : rangeStart;
+      let nextContent = '';
 
-        if (insertMode === 'insert' || insertMode === 'replace') {
-          const replaceEnd = insertMode === 'replace' && rangeEnd > rangeStart ? rangeEnd : rangeStart;
-          const before = content.slice(0, rangeStart);
-          const after = content.slice(replaceEnd);
-          const leadingBreak = before && !before.endsWith('\n') ? '\n\n' : '';
-          const trailingBreak = after && !after.startsWith('\n') ? '\n\n' : '';
-          return {
-            ...current,
-            content: `${before}${leadingBreak}${nextBlock}${trailingBreak}${after}`
-          };
-        }
-
-        const currentContent = content.trimEnd();
+      if (insertMode === 'insert' || insertMode === 'replace') {
+        const replaceEnd = insertMode === 'replace' && rangeEnd > rangeStart ? rangeEnd : rangeStart;
+        const before = beforeContent.slice(0, rangeStart);
+        const after = beforeContent.slice(replaceEnd);
+        const leadingBreak = before && !before.endsWith('\n') ? '\n\n' : '';
+        const trailingBreak = after && !after.startsWith('\n') ? '\n\n' : '';
+        nextContent = `${before}${leadingBreak}${nextBlock}${trailingBreak}${after}`;
+      } else {
+        const currentContent = beforeContent.trimEnd();
         const separator = currentContent ? '\n\n---\n\n' : '';
-        return {
-          ...current,
-          content: `${currentContent}${separator}${nextBlock}`
-        };
-      });
+        nextContent = `${currentContent}${separator}${nextBlock}`;
+      }
+
+      setArticleForm((current) => ({
+        ...current,
+        content: nextContent
+      }));
+      setAiGenerationHistory((current) => [
+        {
+          id: `${Date.now()}-${task}`,
+          task: taskLabel,
+          mode: modeLabel,
+          source: sourceLabel,
+          beforeContent,
+          nextContent,
+          createdAt: new Date().toISOString(),
+        },
+        ...current,
+      ].slice(0, 8));
       setAdminMessage(`${payload.message || `AI ${taskLabel}结果已生成`}，已${modeLabel}到正文`);
     } catch {
       setAdminMessage('后端服务不可用，AI 写作辅助失败');
     } finally {
       setIsRunningArticleAi(false);
     }
+  }
+
+  function undoLatestArticleAiResult(entry) {
+    if (!entry) {
+      setAdminMessage('暂无可撤回的 AI 结果');
+      return;
+    }
+    setArticleForm((current) => ({
+      ...current,
+      content: entry.beforeContent,
+    }));
+    setAiGenerationHistory((current) => current.filter((item) => item.id !== entry.id));
+    setAdminMessage(`已撤回最近一次 AI ${entry.task}结果`);
   }
 
   function useAiResultAsArticleDraft(item) {
@@ -1152,6 +1176,7 @@ function App() {
             isLoadingUploadedImages={isLoadingUploadedImages}
             articleDraftNotice={articleDraftNotice}
             adminMessage={adminMessage}
+            aiGenerationHistory={aiGenerationHistory}
             submitArticleForm={submitArticleForm}
             uploadArticleCover={uploadArticleCover}
             uploadArticleContentImage={uploadArticleContentImage}
@@ -1159,6 +1184,7 @@ function App() {
             copyUploadedImageUrl={copyUploadedImageUrl}
             deleteUploadedImage={deleteUploadedImage}
             runArticleAiTask={runArticleAiTask}
+            undoLatestArticleAiResult={undoLatestArticleAiResult}
             restoreArticleDraft={restoreArticleDraft}
             clearArticleDraft={clearArticleDraft}
             resetArticleForm={resetArticleForm}
@@ -1197,7 +1223,7 @@ function Overview({ profile, articles, setActiveView }) {
     },
     {
       title: 'AI 工作台',
-      summary: '已支持文章灵感、摘要生成、标题优化，并能在后台可控插入润色、续写和大纲。',
+      summary: '已支持灵感、摘要、标题、草稿填入、后台润色续写、可控插入和撤回历史。',
       action: '打开 AI',
       view: 'ai',
       icon: Bot
@@ -2511,6 +2537,7 @@ function AdminWorkspace({
   isLoadingUploadedImages,
   articleDraftNotice,
   adminMessage,
+  aiGenerationHistory,
   submitArticleForm,
   uploadArticleCover,
   uploadArticleContentImage,
@@ -2518,6 +2545,7 @@ function AdminWorkspace({
   copyUploadedImageUrl,
   deleteUploadedImage,
   runArticleAiTask,
+  undoLatestArticleAiResult,
   restoreArticleDraft,
   clearArticleDraft,
   resetArticleForm,
@@ -2557,6 +2585,23 @@ function AdminWorkspace({
     Math.max(adminCommentPageGroups.length - 1, 0)
   );
   const visibleAdminComments = adminCommentPageGroups[currentAdminCommentPage] || [];
+  const publishedCount = articles.filter((article) => article.status !== 'draft').length;
+  const draftCount = articles.filter((article) => article.status === 'draft').length;
+  const pendingCommentCount = adminComments.filter((comment) => comment.status === 'pending').length;
+  const releaseMetrics = [
+    { label: '已发布文章', value: `${publishedCount} 篇` },
+    { label: '草稿', value: `${draftCount} 篇` },
+    { label: '待审评论', value: `${pendingCommentCount} 条` },
+    { label: '图片资源', value: `${uploadedImages.length} 张` },
+    { label: 'AI 生成记录', value: `${aiGenerationHistory.length} 条` },
+  ];
+  const readinessItems = [
+    { label: '文章系统', done: articles.length > 0 },
+    { label: '评论审核', done: true },
+    { label: '图片上传', done: true },
+    { label: '管理员登录', done: Boolean(currentUser?.role === 'admin') },
+    { label: 'AI 写作辅助', done: true },
+  ];
   const contentTextareaRef = useRef(null);
   const [aiInsertMode, setAiInsertMode] = useState('append');
 
@@ -2621,6 +2666,29 @@ function AdminWorkspace({
           <span>退出</span>
         </button>
       </div>
+
+      <section className="admin-panel release-panel">
+        <div className="admin-panel-heading">
+          <h2>2.0 发布状态</h2>
+          <span>Review Candidate</span>
+        </div>
+        <div className="release-metric-grid">
+          {releaseMetrics.map((metric) => (
+            <div className="release-metric" key={metric.label}>
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+        <div className="release-checks">
+          {readinessItems.map((item) => (
+            <span className={item.done ? 'ready' : ''} key={item.label}>
+              <CheckCircle2 size={15} />
+              {item.label}
+            </span>
+          ))}
+        </div>
+      </section>
 
       <div className="admin-layout">
         <form className="admin-panel admin-form" onSubmit={submitArticleForm}>
@@ -2877,6 +2945,33 @@ function AdminWorkspace({
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="admin-panel ai-history-panel">
+          <div className="admin-panel-heading">
+            <h2>AI 生成历史</h2>
+            <span>{aiGenerationHistory.length} 条</span>
+          </div>
+          {aiGenerationHistory.length === 0 ? (
+            <p className="empty-state">暂无 AI 写作记录</p>
+          ) : (
+            <div className="ai-history-list">
+              {aiGenerationHistory.map((entry, index) => (
+                <article className="ai-history-item" key={entry.id}>
+                  <div>
+                    <strong>{entry.task}</strong>
+                    <span>{entry.mode} · {entry.source} · {new Date(entry.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
+                  </div>
+                  {index === 0 && (
+                    <button className="ghost-button" type="button" onClick={() => undoLatestArticleAiResult(entry)}>
+                      <RefreshCw size={16} />
+                      <span>撤回</span>
+                    </button>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="admin-panel image-manager">

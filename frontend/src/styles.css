@@ -1266,6 +1266,58 @@ h3 {
   background: #ffffff;
 }
 
+.release-panel {
+  margin-bottom: 18px;
+}
+
+.release-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.release-metric {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.release-metric span {
+  color: #6a7685;
+  font-size: 12px;
+}
+
+.release-metric strong {
+  color: #102033;
+  font-size: 18px;
+}
+
+.release-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.release-checks span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: #5b6878;
+  background: #edf2f7;
+}
+
+.release-checks span.ready {
+  color: #155f53;
+  background: #dff4ed;
+}
+
 .admin-panel-heading {
   display: flex;
   align-items: center;
@@ -1392,6 +1444,35 @@ h3 {
 .ai-insert-mode button.active {
   color: #ffffff;
   background: #1f7a6d;
+}
+
+.ai-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-history-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.ai-history-item > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ai-history-item span {
+  color: #6a7685;
+  font-size: 13px;
 }
 
 .markdown-toolbar button {
@@ -1875,6 +1956,10 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .release-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .topbar {
     align-items: stretch;
     flex-direction: column;
@@ -1919,6 +2004,10 @@ h3 {
   }
 
   .capability-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .release-metric-grid {
     grid-template-columns: 1fr;
   }
 

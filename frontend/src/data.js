@@ -5,11 +5,11 @@ export const profile = {
   role: '个人博客 · 学习笔记 · AI 工作台 · 技术项目',
   interests: ['技术写作', 'AI 自动化', '长跑', '游戏'],
   summary:
-    '这里沉淀学习笔记、项目复盘和个人实验。当前博客已经具备文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署和可辅助写作流程的 AI 工作台。',
+    '这里沉淀学习笔记、项目复盘和个人实验。当前博客已经形成完整 2.0 闭环：文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署、自动发布和 AI 写作辅助。',
   metrics: [
-    { label: '当前阶段', value: 'v1.7.5' },
+    { label: '当前阶段', value: 'v2.0.0' },
     { label: '写作后台', value: '已可用' },
-    { label: 'AI 模块', value: '可控插入' }
+    { label: 'AI 模块', value: '写作闭环' }
   ]
 };
 
