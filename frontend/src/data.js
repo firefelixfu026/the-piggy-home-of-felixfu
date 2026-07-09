@@ -7,9 +7,9 @@ export const profile = {
   summary:
     '这里沉淀学习笔记、项目复盘和个人实验。当前博客已经具备文章发布、Markdown/LaTeX、图片上传、评论审核、GitHub 登录、云端部署和可辅助写作流程的 AI 工作台。',
   metrics: [
-    { label: '当前阶段', value: 'v1.7.4' },
+    { label: '当前阶段', value: 'v1.7.5' },
     { label: '写作后台', value: '已可用' },
-    { label: 'AI 模块', value: '辅助写作' }
+    { label: 'AI 模块', value: '可控插入' }
   ]
 };
 

@@ -1373,6 +1373,27 @@ h3 {
   opacity: 0.65;
 }
 
+.ai-insert-mode {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #b8d8d0;
+  border-radius: 8px;
+  background: #dff4ed;
+}
+
+.ai-insert-mode button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+}
+
+.ai-insert-mode button.active {
+  color: #ffffff;
+  background: #1f7a6d;
+}
+
 .markdown-toolbar button {
   display: inline-flex;
   align-items: center;

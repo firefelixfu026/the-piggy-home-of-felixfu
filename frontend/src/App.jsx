@@ -578,7 +578,7 @@ function App() {
     clearArticleDraft('');
   }
 
-  async function runArticleAiTask(task, selectedText = '') {
+  async function runArticleAiTask(task, selectedText = '', insertMode = 'append', selectionRange = null) {
     if (currentUser?.role !== 'admin') {
       setAdminMessage('请先登录管理员账号');
       setActiveView('login');
@@ -615,16 +615,41 @@ function App() {
         outline: '大纲'
       }[task] || '写作辅助';
       const sourceLabel = payload.status === 'real' ? '真实模型' : payload.status === 'fallback' ? '回退结果' : '本地占位';
+      const modeLabel = {
+        append: '追加',
+        insert: '插入',
+        replace: selectedText ? '替换' : '插入'
+      }[insertMode] || '追加';
       setArticleForm((current) => {
-        const currentContent = (current.content || '').trimEnd();
-        const separator = currentContent ? '\n\n---\n\n' : '';
         const nextBlock = `## AI ${taskLabel}结果（${sourceLabel}）\n\n${payload.content || ''}`;
+        const content = current.content || '';
+        const rangeStart = Number.isFinite(selectionRange?.start)
+          ? Math.max(0, Math.min(selectionRange.start, content.length))
+          : content.length;
+        const rangeEnd = Number.isFinite(selectionRange?.end)
+          ? Math.max(rangeStart, Math.min(selectionRange.end, content.length))
+          : rangeStart;
+
+        if (insertMode === 'insert' || insertMode === 'replace') {
+          const replaceEnd = insertMode === 'replace' && rangeEnd > rangeStart ? rangeEnd : rangeStart;
+          const before = content.slice(0, rangeStart);
+          const after = content.slice(replaceEnd);
+          const leadingBreak = before && !before.endsWith('\n') ? '\n\n' : '';
+          const trailingBreak = after && !after.startsWith('\n') ? '\n\n' : '';
+          return {
+            ...current,
+            content: `${before}${leadingBreak}${nextBlock}${trailingBreak}${after}`
+          };
+        }
+
+        const currentContent = content.trimEnd();
+        const separator = currentContent ? '\n\n---\n\n' : '';
         return {
           ...current,
           content: `${currentContent}${separator}${nextBlock}`
         };
       });
-      setAdminMessage(payload.message || `AI ${taskLabel}结果已追加到正文`);
+      setAdminMessage(`${payload.message || `AI ${taskLabel}结果已生成`}，已${modeLabel}到正文`);
     } catch {
       setAdminMessage('后端服务不可用，AI 写作辅助失败');
     } finally {
@@ -1172,7 +1197,7 @@ function Overview({ profile, articles, setActiveView }) {
     },
     {
       title: 'AI 工作台',
-      summary: '已支持文章灵感、摘要生成、标题优化，并能在后台润色、续写和生成大纲。',
+      summary: '已支持文章灵感、摘要生成、标题优化，并能在后台可控插入润色、续写和大纲。',
       action: '打开 AI',
       view: 'ai',
       icon: Bot
@@ -2533,6 +2558,7 @@ function AdminWorkspace({
   );
   const visibleAdminComments = adminCommentPageGroups[currentAdminCommentPage] || [];
   const contentTextareaRef = useRef(null);
+  const [aiInsertMode, setAiInsertMode] = useState('append');
 
   function insertIntoContent(prefix, suffix = '', placeholder = '文本') {
     const textarea = contentTextareaRef.current;
@@ -2575,7 +2601,7 @@ function AdminWorkspace({
     const start = textarea?.selectionStart ?? 0;
     const end = textarea?.selectionEnd ?? 0;
     const selectedText = start !== end ? content.slice(start, end) : '';
-    runArticleAiTask(task, selectedText);
+    runArticleAiTask(task, selectedText, aiInsertMode, { start, end });
   }
 
   return (
@@ -2676,6 +2702,23 @@ function AdminWorkspace({
           <label>
             <span>正文</span>
             <div className="ai-editor-tools" aria-label="AI 写作辅助">
+              <div className="ai-insert-mode" role="group" aria-label="AI 结果插入方式">
+                {[
+                  { id: 'append', label: '追加' },
+                  { id: 'insert', label: '插入' },
+                  { id: 'replace', label: '替换' }
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={aiInsertMode === item.id ? 'active' : ''}
+                    onClick={() => setAiInsertMode(item.id)}
+                    aria-pressed={aiInsertMode === item.id}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <button type="button" disabled={isRunningArticleAi} onClick={() => handleRunArticleAiTask('polish')}>
                 <Bot size={16} />
                 <span>AI 润色</span>
