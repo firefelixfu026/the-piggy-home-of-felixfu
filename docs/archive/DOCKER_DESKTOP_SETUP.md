@@ -1,4 +1,4 @@
-# Docker Desktop 安装与验证指南
+﻿# Docker Desktop 安装与验证指南
 
 本文用于完成本项目下一阶段 `v0.3.0 数据持久化版本` 的前置准备。v0.3.0 会使用 PostgreSQL，推荐通过 Docker Desktop + Docker Compose 在本地启动数据库。
 

@@ -1,5 +1,11 @@
 ﻿# 版本日志
 
+## v2.1.2 - 仓库文档中文化整理
+
+- 根目录 `README.md` 改为中文项目介绍，方便验收时快速了解项目目标、功能、技术栈和部署方式。
+- `docs/README.md` 改为中文文档导航，统一说明正式文档和归档文档的用途。
+- `docs/guides/` 下正式文档改为中文文件名，包括部署、域名、数据库、备份、GitHub 登录、自动部署和服务器运维说明。
+- 保留 GitHub 常见约定文件名，例如 `README.md` 和 `CHANGELOG.md`，但内容优先使用中文。
 ## v2.1.1 - AI Codex 中转接口适配
 
 - 后端新增 `AI_API_STYLE` 配置，支持 `openai` 和 `codex` 两种真实模型接口类型。
@@ -283,7 +289,7 @@
 
 - 新增 `.github/workflows/deploy.yml`，在 CI 成功后自动 SSH 到阿里云服务器执行部署。
 - 新增 `scripts/deploy-production.sh`，统一服务器手动部署和 Actions 自动部署流程。
-- 新增 `GITHUB_ACTIONS_DEPLOYMENT.md`，记录 SSH key、GitHub Secrets、手动触发和故障回退说明。
+- 新增 `GitHub自动部署指南.md`，记录 SSH key、GitHub Secrets、手动触发和故障回退说明。
 - 更新 `README.md` 和 `NEXT_STEPS.md`，补充自动部署入口和下一步配置清单。
 ## v1.0.2 - 备份验证和端口安全收紧
 
@@ -294,12 +300,12 @@
 - 已执行 `docker compose config` 验证配置合法。
 ## v1.0.1 - 服务器日常运维文档
 
-- 新增 `SERVER_OPERATIONS.md`，记录 SSH 登录、服务状态、日志、更新、重启、Nginx、HTTPS、备份、磁盘检查和常见故障排查。
+- 新增 `服务器运维手册.md`，记录 SSH 登录、服务状态、日志、更新、重启、Nginx、HTTPS、备份、磁盘检查和常见故障排查。
 - 更新 `README.md`，增加上线后运维入口。
 - 更新 `NEXT_STEPS.md`，把后续重点推进到备份验证、运维检查和自动部署。
 ## v1.0.0 - 数据库备份和恢复
 
-- 新增 `DATABASE_BACKUP.md`，记录线上 PostgreSQL 手动备份、恢复、下载备份和自动备份流程。
+- 新增 `数据库备份和恢复.md`，记录线上 PostgreSQL 手动备份、恢复、下载备份和自动备份流程。
 - 新增 `scripts/backup-postgres.sh`，用于服务器上生成压缩数据库备份并清理旧备份。
 - 新增 `scripts/restore-postgres.sh`，用于从 `.sql.gz` 备份恢复数据库，并在恢复前自动做安全备份。
 - 更新 `.gitignore`，忽略本地生成的文档和代码备份目录。
@@ -315,24 +321,24 @@
 - HTTPS 已配置完成。
 - GitHub OAuth 登录已验证成功。
 - v0.9.0 云服务器部署目标基本完成，下一阶段进入上线后检查、内容发布、备份和自动化增强。
-- 更新 `README.md`、`NEXT_STEPS.md`、`CLOUD_SERVER_DEPLOYMENT.md` 和 `GITHUB_OAUTH_APP_SETUP.md`。
+- 更新 `README.md`、`NEXT_STEPS.md`、`云服务器部署指南.md` 和 `GitHub登录配置指南.md`。
 ## v0.9.2 - GitHub OAuth 环境变量排查
 
 - 记录 GitHub 登录失败原因：服务器 `.env` 中 `GITHUB_CLIENT_ID` 未配置。
 - 确认 GitHub OAuth App 的正式域名 URL 配置方向正确。
-- 更新 `CLOUD_SERVER_DEPLOYMENT.md`、`NEXT_STEPS.md` 和 `GITHUB_OAUTH_APP_SETUP.md`，补充线上 `.env` 配置和重启命令。
+- 更新 `云服务器部署指南.md`、`NEXT_STEPS.md` 和 `GitHub登录配置指南.md`，补充线上 `.env` 配置和重启命令。
 ## v0.9.1 - 域名解析正常，准备 HTTPS
 
 - 记录域名 `www.felixfu.xyz` 的 A 记录已显示解析正常。
 - 当前 HTTPS 仍未设置，下一步是在服务器配置 Nginx 正式域名和 Certbot 证书。
-- 更新 `README.md`、`NEXT_STEPS.md`、`CLOUD_SERVER_DOMAIN_PREP.md` 和 `CLOUD_SERVER_DEPLOYMENT.md`，同步域名阶段状态。
+- 更新 `README.md`、`NEXT_STEPS.md`、`云服务器和域名准备.md` 和 `云服务器部署指南.md`，同步域名阶段状态。
 ## v0.9.0 - 阿里云公网 IP 部署成功
 
 - 阿里云中国香港服务器公网 IP `47.242.176.227` 已可访问博客。
 - Docker Compose 已在服务器启动前端、后端和 PostgreSQL。
 - Nginx 已完成 80 端口反向代理到前端容器。
 - 当前仍等待域名审批，后续需要配置 DNS、HTTPS 和 GitHub OAuth 正式回调。
-- 更新 `README.md`、`NEXT_STEPS.md` 和 `CLOUD_SERVER_DEPLOYMENT.md`，记录公网 IP 阶段部署成功。
+- 更新 `README.md`、`NEXT_STEPS.md` 和 `云服务器部署指南.md`，记录公网 IP 阶段部署成功。
 ## v0.8.5 - Docker 环境验证通过
 
 - 记录阿里云服务器已完成 Docker 安装。
@@ -347,27 +353,27 @@
 ## v0.8.3 - 阿里云服务器信息记录
 
 - 记录已购买的阿里云中国香港服务器信息：Ubuntu 22.04、2 vCPU、2 GiB、40 GiB、公网 IP `47.242.176.227`。
-- 更新 `CLOUD_SERVER_DEPLOYMENT.md`，明确域名审批前先使用公网 IP 部署和验证。
+- 更新 `云服务器部署指南.md`，明确域名审批前先使用公网 IP 部署和验证。
 - 更新 `NEXT_STEPS.md`，把下一步调整为 SSH 连接服务器并部署 Docker Compose。
-- 更新 `README.md` 和 `CLOUD_SERVER_DOMAIN_PREP.md`，同步当前服务器和域名审批状态。
+- 更新 `README.md` 和 `云服务器和域名准备.md`，同步当前服务器和域名审批状态。
 ## v0.8.2 - 阿里云部署路线确认
 
 - 明确 v0.9.0 云部署优先使用阿里云。
-- 更新 `CLOUD_SERVER_DOMAIN_PREP.md`，新增阿里云购买建议、地域选择、安全组端口和备案路线。
-- 更新 `CLOUD_SERVER_DEPLOYMENT.md`，新增阿里云购买、控制台、安全组、DNS 配置说明。
+- 更新 `云服务器和域名准备.md`，新增阿里云购买建议、地域选择、安全组端口和备案路线。
+- 更新 `云服务器部署指南.md`，新增阿里云购买、控制台、安全组、DNS 配置说明。
 - 更新 `NEXT_STEPS.md`，把下一阶段调整为 v0.9.0 阿里云服务器部署。
 - 更新 `README.md`，在下一步中明确阿里云优先路线。
 ## v0.8.1 - 启动和云部署文档整理
 
-- 新增 `CLOUD_SERVER_DEPLOYMENT.md`，记录从服务器初始化到 Docker Compose、Nginx、DNS、HTTPS 和 GitHub OAuth 上线配置的完整流程。
+- 新增 `云服务器部署指南.md`，记录从服务器初始化到 Docker Compose、Nginx、DNS、HTTPS 和 GitHub OAuth 上线配置的完整流程。
 - 更新 `README.md`，补充本地 Docker Compose 快速启动入口和 v0.9.0 云部署路线。
 - 更新 `NEXT_STEPS.md`，明确当前阶段是 v0.8.1 文档整理版，下一步是 v0.9.0 云服务器部署。
-- 更新 `DOCKER_COMPOSE.md`，增加快速启动清单和云服务器部署关系说明。
-- 更新 `CLOUD_SERVER_DOMAIN_PREP.md`，增加部署执行入口并链接到云部署指南。
+- 更新 `本地和服务器启动指南.md`，增加快速启动清单和云服务器部署关系说明。
+- 更新 `云服务器和域名准备.md`，增加部署执行入口并链接到云部署指南。
 ## v0.8.0 - GitHub Actions 自动测试
 
 - 新增 `.github/workflows/ci.yml`。
-- 新增 `CLOUD_SERVER_DOMAIN_PREP.md`，记录云服务器、域名、备案、DNS 和 HTTPS 准备事项。
+- 新增 `云服务器和域名准备.md`，记录云服务器、域名、备案、DNS 和 HTTPS 准备事项。
 - CI 在 push 到 `main`、PR 到 `main`、手动触发时运行。
 - 新增 `Backend` job：安装 Python 3.12、安装后端依赖、编译后端代码、导入 FastAPI app。
 - 新增 `Frontend` job：安装 Node 22、执行 `npm ci`、执行 `npm run build`。
@@ -383,7 +389,7 @@
 - 扩展 `docker-compose.yml`，支持 `postgres`、`backend`、`frontend` 三服务一键启动。
 - 新增 Docker 健康检查，后端依赖数据库健康后启动，前端依赖后端健康后启动。
 - 新增 `.dockerignore`、`backend/.dockerignore`、`frontend/.dockerignore`，减少构建上下文。
-- 新增 `DOCKER_COMPOSE.md`，记录启动、停止、验证、Clash 代理和 OAuth 配置方式。
+- 新增 `本地和服务器启动指南.md`，记录启动、停止、验证、Clash 代理和 OAuth 配置方式。
 - README 和下一步计划已更新为 Docker Compose 优先。
 
 ## v0.6.0 - GitHub OAuth 登录
@@ -396,7 +402,7 @@
 - 支持 `GITHUB_ADMIN_LOGINS` 和 `GITHUB_ADMIN_EMAILS` 指定 GitHub 管理员。
 - 前端登录页新增“使用 GitHub 登录”按钮。
 - 前端支持解析 OAuth 回调 token，登录后自动进入管理页。
-- 新增 `GITHUB_OAUTH_APP_SETUP.md`，记录 GitHub OAuth App 创建和本地环境变量配置步骤。
+- 新增 `GitHub登录配置指南.md`，记录 GitHub OAuth App 创建和本地环境变量配置步骤。
 - 更新 README、数据库说明、下一步计划和代码分析文档。
 
 ## v0.5.0 - 登录鉴权和后台保护
@@ -425,7 +431,7 @@
 - 新增 SQLAlchemy 数据库层、数据模型和种子数据初始化。
 - 后端 `/api/articles`、`/api/articles/{id}/comments`、`/api/articles/{id}/reaction` 改为数据库读写。
 - 前端评论、点赞、收藏、点踩改为调用后端接口，数据可持久化。
-- 新增 `DATABASE.md`，记录数据库启动、表结构、接口行为和验证命令。
+- 新增 `数据库说明.md`，记录数据库启动、表结构、接口行为和验证命令。
 - 更新 README、下一步计划和代码分析文档。
 
 ## v0.2.3 - Git 代理和小游戏响应式修正
