@@ -1457,6 +1457,13 @@ h3 {
   gap: 10px;
 }
 
+.favorite-article-list .compact-button {
+  justify-self: start;
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 14px;
+}
+
 .checkbox-control {
   display: inline-flex;
   align-items: center;

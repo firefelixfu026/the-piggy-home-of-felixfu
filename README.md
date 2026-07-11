@@ -1,4 +1,4 @@
-﻿# 付江樊的个人博客
+# 付江樊的个人博客
 
 [![CI](https://github.com/firefelixfu026/the-piggy-home-of-felixfu/actions/workflows/ci.yml/badge.svg)](https://github.com/firefelixfu026/the-piggy-home-of-felixfu/actions/workflows/ci.yml)
 
@@ -18,8 +18,8 @@ https://www.felixfu.xyz
 - GitHub 登录、普通邮箱注册/登录、管理员权限控制和初始化密钥保护
 - 登录后才能评论、点赞、收藏、点踩和使用“？”反馈
 - 每个账号的互动只记录一次，刷新页面不会重复计数
-- 评论支持分页、字数限制、后台管理和删除
-- 账号中心可查看自己的评论、收藏和互动记录
+- 评论支持分页、字数限制、回复、后台管理、删除和管理员免审开关
+- 账号中心可查看自己的评论、收藏文章和互动记录
 - 管理员 AI 工作台支持选题、摘要、标题、润色、续写和大纲生成
 - 支持本地占位 AI，也支持 OpenAI 兼容接口或中转站接口
 - Docker Compose 一键启动前端、后端和 PostgreSQL
@@ -89,6 +89,7 @@ http://127.0.0.1:8080/api/health
 - `DATABASE_URL`：PostgreSQL 数据库连接地址
 - `AUTH_SECRET`：后端登录 Token 加密密钥
 - `ADMIN_SETUP_TOKEN`：初始化管理员密钥
+- `ADMIN_COMMENTS_REQUIRE_APPROVAL`：是否让管理员评论也进入审核，默认 `false`
 - `GITHUB_CLIENT_ID`：GitHub OAuth 应用 ID
 - `GITHUB_CLIENT_SECRET`：GitHub OAuth 应用密钥
 - `GITHUB_OAUTH_CALLBACK_URL`：GitHub 登录回调地址

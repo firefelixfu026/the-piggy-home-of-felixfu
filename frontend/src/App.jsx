@@ -1334,6 +1334,10 @@ function App() {
             accountActivity={accountActivity}
             refreshAccountActivity={refreshAccountActivity}
             setActiveView={setActiveView}
+            openArticle={(articleId) => {
+              setActiveView('articles');
+              openArticle(articleId);
+            }}
           />
         )}
 
@@ -2651,10 +2655,11 @@ function GameWorkspace() {
   );
 }
 
-function AccountWorkspace({ currentUser, accountActivity, refreshAccountActivity, setActiveView }) {
+function AccountWorkspace({ currentUser, accountActivity, refreshAccountActivity, setActiveView, openArticle }) {
   const summary = accountActivity?.summary || {};
   const comments = accountActivity?.comments || [];
   const reactions = accountActivity?.reactions || [];
+  const favoriteArticles = accountActivity?.favoriteArticles || [];
 
   return (
     <section className="workspace account-workspace">
@@ -2732,6 +2737,30 @@ function AccountWorkspace({ currentUser, accountActivity, refreshAccountActivity
                   <strong>{reaction.articleTitle}</strong>
                   <p>{reactionLabel(reaction.type)}</p>
                   <span>{new Date(reaction.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="tool-panel">
+          <div className="admin-panel-heading">
+            <h2>我的收藏</h2>
+            <span>{favoriteArticles.length} 篇</span>
+          </div>
+          {favoriteArticles.length === 0 ? (
+            <p className="empty-state">还没有收藏文章</p>
+          ) : (
+            <div className="account-list favorite-article-list">
+              {favoriteArticles.map((article) => (
+                <article key={`${article.id}-${article.createdAt}`}>
+                  <strong>{article.title}</strong>
+                  {article.summary && <p>{article.summary}</p>}
+                  <span>{article.date} · {article.readTime}</span>
+                  <button className="ghost-button compact-button" type="button" onClick={() => openArticle(article.id)}>
+                    <BookOpen size={15} />
+                    <span>查看文章</span>
+                  </button>
                 </article>
               ))}
             </div>

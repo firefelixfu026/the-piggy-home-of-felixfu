@@ -47,6 +47,7 @@ except ValueError:
 ADMIN_SETUP_TOKEN = os.getenv("ADMIN_SETUP_TOKEN", "").strip()
 COMMENT_MAX_LENGTH = 300
 COMMENT_COOLDOWN_SECONDS = 20
+ADMIN_COMMENTS_REQUIRE_APPROVAL = os.getenv("ADMIN_COMMENTS_REQUIRE_APPROVAL", "false").strip().lower() in {"1", "true", "yes", "on"}
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_IMAGE_TYPES = {
@@ -252,6 +253,7 @@ def create_comment(
             raise HTTPException(status_code=400, detail="Reply target is invalid")
         parent_id = parent.id
 
+    comment_status = "pending" if current_user.role != "admin" or ADMIN_COMMENTS_REQUIRE_APPROVAL else "approved"
     db.add(
         Comment(
             article_id=article.id,
@@ -259,7 +261,7 @@ def create_comment(
             parent_id=parent_id,
             author_name=(current_user.display_name or current_user.email or "访客").strip() or "访客",
             content=content,
-            status="pending",
+            status=comment_status,
         )
     )
     db.commit()
@@ -268,7 +270,7 @@ def create_comment(
     return {
         "articleId": article_id,
         "comments": [_comment_to_dict(item) for item in _public_comments(article)],
-        "message": "评论已提交，审核通过后会公开显示",
+        "message": "管理员评论已直接公开" if comment_status == "approved" else "评论已提交，审核通过后会公开显示",
     }
 
 
@@ -388,15 +390,17 @@ def get_my_activity(
         .options(selectinload(UserReaction.article))
         .order_by(UserReaction.created_at.desc())
     ).all()
+    favorite_reactions = [item for item in reactions if item.reaction_type == "favorite"]
     return {
         "user": _user_to_dict(current_user),
         "summary": {
             "comments": len(comments),
             "reactions": len(reactions),
-            "favorites": len([item for item in reactions if item.reaction_type == "favorite"]),
+            "favorites": len(favorite_reactions),
         },
         "comments": [_my_comment_to_dict(comment) for comment in comments[:20]],
         "reactions": [_my_reaction_to_dict(reaction) for reaction in reactions[:30]],
+        "favoriteArticles": [_favorite_article_to_dict(reaction) for reaction in favorite_reactions[:20]],
     }
 
 
@@ -1392,6 +1396,18 @@ def _my_reaction_to_dict(reaction: UserReaction) -> dict:
         "type": reaction.reaction_type,
         "articleId": reaction.article_id,
         "articleTitle": reaction.article.title if reaction.article else reaction.article_id,
+        "createdAt": reaction.created_at.isoformat(),
+    }
+
+
+def _favorite_article_to_dict(reaction: UserReaction) -> dict:
+    article = reaction.article
+    return {
+        "id": reaction.article_id,
+        "title": article.title if article else reaction.article_id,
+        "summary": article.summary if article else "",
+        "date": article.date if article else "",
+        "readTime": article.read_time if article else "",
         "createdAt": reaction.created_at.isoformat(),
     }
 
