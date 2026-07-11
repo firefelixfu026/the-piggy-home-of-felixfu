@@ -310,6 +310,27 @@ def create_reaction(
     }
 
 @app.post("/api/auth/register")
+def register_reader(payload: RegisterIn, db: Session = Depends(get_db)) -> dict:
+    email = _normalize_email(payload.email)
+    password = _validate_password(payload.password)
+    display_name = payload.displayName.strip() or email.split("@", 1)[0]
+
+    if db.scalar(select(User).where(User.email == email)):
+        raise HTTPException(status_code=409, detail="Email is already registered")
+
+    user = User(
+        email=email,
+        display_name=display_name,
+        password_hash=hash_password(password),
+        role="reader",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"token": create_access_token(user), "user": _user_to_dict(user)}
+
+
+@app.post("/api/auth/admin/register")
 def register_admin(payload: RegisterIn, db: Session = Depends(get_db)) -> dict:
     if db.scalar(select(User.id).where(User.role == "admin")):
         raise HTTPException(status_code=403, detail="Admin account is already initialized")

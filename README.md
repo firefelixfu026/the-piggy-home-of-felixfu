@@ -15,12 +15,12 @@ https://www.felixfu.xyz
 - 文章列表、文章详情、搜索、标签、分类、归档、置顶和阅读时长
 - Markdown、LaTeX 公式、代码块、表格和文章图片渲染
 - 管理员后台支持文章发布、编辑、删除、草稿、图片上传和站点统计
-- GitHub 登录、邮箱登录、管理员权限控制和初始化密钥保护
+- GitHub 登录、普通邮箱注册/登录、管理员权限控制和初始化密钥保护
 - 登录后才能评论、点赞、收藏、点踩和使用“？”反馈
 - 每个账号的互动只记录一次，刷新页面不会重复计数
 - 评论支持分页、字数限制、后台管理和删除
 - 账号中心可查看自己的评论、收藏和互动记录
-- AI 工作台支持选题、摘要、标题、润色、续写和大纲生成
+- 管理员 AI 工作台支持选题、摘要、标题、润色、续写和大纲生成
 - 支持本地占位 AI，也支持 OpenAI 兼容接口或中转站接口
 - Docker Compose 一键启动前端、后端和 PostgreSQL
 - GitHub Actions 自动测试并部署到阿里云服务器
@@ -30,7 +30,7 @@ https://www.felixfu.xyz
 - 前端：React、Vite、KaTeX、Markdown 渲染
 - 后端：FastAPI、SQLAlchemy、Pydantic
 - 数据库：PostgreSQL
-- 登录认证：邮箱密码、GitHub OAuth、Token 鉴权
+- 登录认证：普通邮箱注册/登录、GitHub OAuth、Token 鉴权
 - 部署：Docker Compose、Nginx、HTTPS、阿里云轻量应用服务器
 - 自动化：GitHub Actions CI/CD
 - AI：本地回退生成、OpenAI 兼容接口、Codex 中转接口
@@ -103,7 +103,7 @@ http://127.0.0.1:8080/api/health
 
 ## AI 配置说明
 
-AI 模块有两种运行方式：
+AI 模块目前作为管理员写作辅助工具使用，有两种运行方式：
 
 1. 本地占位模式：不需要真实 API Key，也能演示选题、摘要、标题和写作辅助流程。
 2. 真实模型模式：通过 OpenAI 兼容接口或中转站接口调用真实模型。

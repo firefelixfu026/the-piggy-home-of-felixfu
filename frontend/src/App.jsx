@@ -51,14 +51,19 @@ const createEmptyArticleForm = () => ({
   pinned: false
 });
 
-const publicNavItems = [
-  { id: 'overview', label: '首页', icon: UserRound },
+const visitorNavItems = [
   { id: 'articles', label: '文章', icon: BookOpen },
-  { id: 'ai', label: 'AI', icon: Bot },
   { id: 'game', label: '游戏', icon: Gamepad2 },
   { id: 'login', label: '登录', icon: LogIn }
 ];
 
+const readerNavItems = [
+  { id: 'overview', label: '首页', icon: UserRound },
+  { id: 'articles', label: '文章', icon: BookOpen },
+  { id: 'game', label: '游戏', icon: Gamepad2 }
+];
+
+const aiNavItem = { id: 'ai', label: 'AI', icon: Bot };
 const adminNavItem = { id: 'admin', label: '管理', icon: FilePenLine };
 const accountNavItem = { id: 'account', label: '账号', icon: UserRound };
 
@@ -173,11 +178,15 @@ function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   const visibleNavItems = useMemo(() => {
-    const baseItems = currentUser ? [...publicNavItems.filter((item) => item.id !== 'login'), accountNavItem] : publicNavItems;
-    if (currentUser?.role === 'admin') {
-      return [...baseItems, adminNavItem];
+    if (!currentUser) {
+      return visitorNavItems;
     }
-    return baseItems;
+
+    if (currentUser.role === 'admin') {
+      return [readerNavItems[0], readerNavItems[1], aiNavItem, readerNavItems[2], accountNavItem, adminNavItem];
+    }
+
+    return [...readerNavItems, accountNavItem];
   }, [currentUser?.role]);
 
   useEffect(() => {
@@ -293,11 +302,24 @@ function App() {
   }, [activeView, currentUser?.role, articleForm, editingArticleId]);
 
   useEffect(() => {
-    if (activeView !== 'admin') return;
-    if (!authToken || (currentUser && currentUser.role !== 'admin')) {
+    if (!currentUser) {
+      if (authToken) return;
+      if (!['articles', 'game', 'login'].includes(activeView)) {
+        setActiveView('articles');
+      }
+      return;
+    }
+
+    if (activeView === 'admin' && currentUser.role !== 'admin') {
+      setActiveView('overview');
+      return;
+    }
+
+    if (activeView === 'ai' && currentUser.role !== 'admin') {
+      setInteractionMessage('AI 工作台仅管理员可用');
       setActiveView('overview');
     }
-  }, [activeView, authToken, currentUser]);
+  }, [activeView, authToken, currentUser?.role]);
 
   async function refreshArticles(token = authToken) {
     const headers = token ? { Authorization: 'Bearer ' + token } : {};
@@ -493,11 +515,16 @@ function App() {
     setIsAuthLoading(true);
     setAuthMessage('');
 
-    const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+    const endpoint = {
+      login: '/api/auth/login',
+      signup: '/api/auth/register',
+      'admin-register': '/api/auth/admin/register'
+    }[authMode] || '/api/auth/login';
     const payload = {
       email: authForm.email,
       password: authForm.password,
-      ...(authMode === 'register' ? { displayName: authForm.displayName, setupToken: authForm.setupToken } : {})
+      ...(authMode !== 'login' ? { displayName: authForm.displayName } : {}),
+      ...(authMode === 'admin-register' ? { setupToken: authForm.setupToken } : {})
     };
 
     try {
@@ -519,8 +546,10 @@ function App() {
       setCurrentUser(result.user);
       setInteractionMessage('');
       await refreshArticles(result.token);
-      setAuthMessage(authMode === 'register' ? '管理员已初始化' : '已登录');
-      setActiveView('admin');
+      setAuthMessage(
+        authMode === 'signup' ? '普通账号已注册' : authMode === 'admin-register' ? '管理员已初始化' : '已登录'
+      );
+      setActiveView(result.user?.role === 'admin' ? 'admin' : 'articles');
     } catch {
       setAuthMessage('后端服务不可用，登录失败');
     } finally {
@@ -1256,7 +1285,7 @@ function App() {
           </div>
         </header>
 
-        {activeView === 'overview' && <Overview profile={profile} articles={articles} setActiveView={setActiveView} />}
+        {activeView === 'overview' && <Overview profile={profile} articles={articles} setActiveView={setActiveView} currentUser={currentUser} />}
 
         {activeView === 'articles' && (
           <ArticleWorkspace
@@ -1289,7 +1318,7 @@ function App() {
           />
         )}
 
-        {activeView === 'ai' && (
+        {activeView === 'ai' && currentUser?.role === 'admin' && (
           <AiWorkspace
             news={aiNews}
             articles={articles}
@@ -1382,7 +1411,7 @@ function App() {
   );
 }
 
-function Overview({ profile, articles, setActiveView }) {
+function Overview({ profile, articles, setActiveView, currentUser }) {
   const capabilityCards = [
     {
       title: '文章系统',
@@ -1396,7 +1425,8 @@ function Overview({ profile, articles, setActiveView }) {
       summary: '已支持灵感、摘要、标题、草稿填入、后台润色续写、可控插入和撤回历史。',
       action: '打开 AI',
       view: 'ai',
-      icon: Bot
+      icon: Bot,
+      adminOnly: true
     },
     {
       title: '小游戏',
@@ -1410,7 +1440,8 @@ function Overview({ profile, articles, setActiveView }) {
       summary: '管理员可发布文章、管理图片、恢复本地草稿、审核评论和维护内容。',
       action: '进入后台',
       view: 'admin',
-      icon: FilePenLine
+      icon: FilePenLine,
+      adminOnly: true
     }
   ];
 
@@ -1426,10 +1457,12 @@ function Overview({ profile, articles, setActiveView }) {
               <BookOpen size={17} />
               <span>看文章</span>
             </button>
-            <button className="ghost-button" type="button" onClick={() => setActiveView('ai')}>
-              <Bot size={17} />
-              <span>打开 AI 工作台</span>
-            </button>
+            {currentUser?.role === 'admin' && (
+              <button className="ghost-button" type="button" onClick={() => setActiveView('ai')}>
+                <Bot size={17} />
+                <span>打开 AI 工作台</span>
+              </button>
+            )}
           </div>
           <div className="interest-row">
             {profile.interests.map((interest) => (
@@ -1455,7 +1488,7 @@ function Overview({ profile, articles, setActiveView }) {
           <h2>博客已经从 MVP 进入 AI 模块阶段</h2>
         </div>
         <div className="capability-grid">
-          {capabilityCards.map((card) => {
+          {capabilityCards.filter((card) => !card.adminOnly || currentUser?.role === 'admin').map((card) => {
             const Icon = card.icon;
             return (
               <article className="capability-card" key={card.title}>
@@ -2735,12 +2768,12 @@ function LoginWorkspace({
   logout,
   goToAdmin
 }) {
-  if (currentUser?.role === 'admin') {
+  if (currentUser) {
     return (
       <section className="workspace">
         <div className="section-heading">
           <p className="eyebrow">账号</p>
-          <h1>已登录管理员账号</h1>
+          <h1>{currentUser.role === 'admin' ? '已登录管理员账号' : '已登录读者账号'}</h1>
         </div>
         <div className="admin-panel auth-panel">
           <div className="auth-user">
@@ -2751,10 +2784,12 @@ function LoginWorkspace({
             </div>
           </div>
           <div className="admin-actions">
-            <button className="primary-action" type="button" onClick={goToAdmin}>
-              <FilePenLine size={17} />
-              <span>进入后台</span>
-            </button>
+            {currentUser.role === 'admin' && (
+              <button className="primary-action" type="button" onClick={goToAdmin}>
+                <FilePenLine size={17} />
+                <span>进入后台</span>
+              </button>
+            )}
             <button className="ghost-button" type="button" onClick={() => logout()}>
               <LogOut size={17} />
               <span>退出登录</span>
@@ -2769,7 +2804,7 @@ function LoginWorkspace({
     <section className="workspace">
       <div className="section-heading">
         <p className="eyebrow">账号</p>
-        <h1>管理员登录</h1>
+        <h1>账号登录</h1>
       </div>
 
       <form className="admin-panel admin-form auth-panel" onSubmit={submitAuthForm}>
@@ -2792,35 +2827,43 @@ function LoginWorkspace({
           </button>
           <button
             type="button"
-            className={authMode === 'register' ? 'active' : ''}
-            onClick={() => setAuthMode('register')}
+            className={authMode === 'signup' ? 'active' : ''}
+            onClick={() => setAuthMode('signup')}
+          >
+            注册普通用户
+          </button>
+          <button
+            type="button"
+            className={authMode === 'admin-register' ? 'active' : ''}
+            onClick={() => setAuthMode('admin-register')}
           >
             初始化管理员
           </button>
         </div>
 
-        {authMode === 'register' && (
-          <>
-            <label>
-              <span>显示名称</span>
-              <input
-                value={authForm.displayName}
-                onChange={(event) => updateAuthForm('displayName', event.target.value)}
-                placeholder="Felix Fu"
-                required
-              />
-            </label>
-            <label>
-              <span>初始化密钥</span>
-              <input
-                type="password"
-                value={authForm.setupToken}
-                onChange={(event) => updateAuthForm('setupToken', event.target.value)}
-                placeholder="服务器 ADMIN_SETUP_TOKEN"
-                required
-              />
-            </label>
-          </>
+        {authMode !== 'login' && (
+          <label>
+            <span>显示名称</span>
+            <input
+              value={authForm.displayName}
+              onChange={(event) => updateAuthForm('displayName', event.target.value)}
+              placeholder="Felix Fu"
+              required
+            />
+          </label>
+        )}
+
+        {authMode === 'admin-register' && (
+          <label>
+            <span>初始化密钥</span>
+            <input
+              type="password"
+              value={authForm.setupToken}
+              onChange={(event) => updateAuthForm('setupToken', event.target.value)}
+              placeholder="服务器 ADMIN_SETUP_TOKEN"
+              required
+            />
+          </label>
         )}
 
         <label>
@@ -2849,7 +2892,7 @@ function LoginWorkspace({
         <div className="admin-actions">
           <button className="primary-action" type="submit" disabled={isAuthLoading}>
             <LogIn size={17} />
-            <span>{isAuthLoading ? '处理中' : authMode === 'register' ? '初始化' : '登录'}</span>
+            <span>{isAuthLoading ? '处理中' : authMode === 'signup' ? '注册' : authMode === 'admin-register' ? '初始化' : '登录'}</span>
           </button>
         </div>
 
